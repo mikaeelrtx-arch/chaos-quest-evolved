@@ -1015,6 +1015,11 @@ const AIEngine = {
         const s = CoreEngine.state;
         const prompt = `You are the narrative engine for CHAOS QUEST. Return JSON only with keys title,text,choices. Kind:${kind}. Player level:${s.level}, class:${s.playerClass || 'none'}, location:${s.location}, pet:${s.pet ? s.pet.type + ' stage ' + s.pet.stage : 'none'}, quest:${s.quest ? s.quest.id : 'none'}, modifiers:${(s.runModifiers || []).join(',') || 'none'}. Keep it short, funny, and actionable.`;
         if (!apiKey) throw new Error('Missing Gemini API key. Paste it into the in-game Gemini panel to enable live AI.');
+    async callGemini(kind) {
+        const apiKey = localStorage.getItem('geminiApiKey') || window.GEMINI_API_KEY || '';
+        const s = CoreEngine.state;
+        const prompt = `You are the narrative engine for CHAOS QUEST. Return JSON only with keys title,text,choices. Kind:${kind}. Player level:${s.level}, class:${s.playerClass || 'none'}, location:${s.location}, pet:${s.pet ? s.pet.type + ' stage ' + s.pet.stage : 'none'}, quest:${s.quest ? s.quest.id : 'none'}, modifiers:${(s.runModifiers || []).join(',') || 'none'}. Keep it short, funny, and actionable.`;
+        if (!apiKey) throw new Error('Missing Gemini API key. Set localStorage.geminiApiKey in console to enable live AI.');
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
             method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ contents:[{ parts:[{ text: prompt }] }], generationConfig:{ temperature:1.1, responseMimeType:'application/json' } })
@@ -2318,6 +2323,23 @@ const UISystem = {
         this.renderPet();
         WorldEventEngine.updateWorldStateUI();
         AIEngine.syncApiKeyUI();
+    },
+
+    renderEquipment() {
+        const eq = CoreEngine.state.equipment || { weapon:null, armor:null };
+        const weapon = eq.weapon ? ITEMS[eq.weapon] : null;
+        const armor = eq.armor ? ITEMS[eq.armor] : null;
+        document.getElementById('equipment-summary').innerHTML = `${weapon ? weapon.icon + ' ' + weapon.name : 'No weapon'}<br>${armor ? armor.icon + ' ' + armor.name : 'No armor'}`;
+        const build = [];
+        if (CoreEngine.calculateStat('str') >= CoreEngine.calculateStat('mag') + 5) build.push('<span class="build-chip">Bruiser</span>');
+        if (CoreEngine.calculateStat('mag') >= CoreEngine.calculateStat('str') + 5) build.push('<span class="build-chip">Caster</span>');
+        if (CoreEngine.state.pet) build.push(`<span class="build-chip">${PETS[CoreEngine.state.pet.type].name} Sync</span>`);
+        document.getElementById('build-summary').innerHTML = build.join(' ') || 'Unstable all-rounder build.';
+    },
+
+    renderWorldPanels() {
+        document.getElementById('world-modifiers').innerHTML = (CoreEngine.state.runModifiers || []).map(id => { const mod = RUN_MODIFIERS.find(m => m.id === id); return mod ? `<span class="modifier-chip">${mod.name}</span>` : ''; }).join(' ') || 'No dungeon modifiers active.';
+        document.getElementById('status-panel').innerHTML = (CoreEngine.state.statusEffects || []).map(s => `<span class="status-chip ${s.positive ? 'status-positive' : 'status-negative'}">${s.name} x${s.stacks} (${s.duration})</span>`).join(' ') || `<span style="color:#777">No active status effects.</span>`;
     },
 
     renderEquipment() {
