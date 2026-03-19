@@ -1,0 +1,2623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✨ CHAOS QUEST: The Duck Prophecy 🦆 v3.0 EVOLVED</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+        :root {
+            --neon-pink: #ff00ff;
+            --neon-blue: #00ffff;
+            --neon-green: #00ff00;
+            --neon-gold: #ffd700;
+            --neon-red: #ff3333;
+            --neon-orange: #ff7700;
+            --neon-purple: #cc44ff;
+            --neon-cyan: #00ffff;
+            --dark-bg: #050510;
+            --panel-bg: rgba(20, 20, 40, 0.9);
+            --glass-bg: rgba(30, 30, 60, 0.7);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--dark-bg);
+            color: white;
+            font-family: 'VT323', monospace;
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            user-select: none;
+        }
+
+        #particle-canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: -1;
+        }
+
+        #game-container {
+            width: 1000px;
+            height: 94vh;
+            background: var(--panel-bg);
+            border: 4px solid var(--neon-blue);
+            box-shadow: 0 0 30px var(--neon-blue), 0 0 60px rgba(0,255,255,0.2);
+            border-radius: 15px;
+            display: grid;
+            grid-template-rows: 70px 1fr 180px;
+            grid-template-columns: 1fr 280px;
+            overflow: hidden;
+            position: relative;
+            transition: all 0.5s ease;
+        }
+
+        /* World State Indicator */
+        #world-state-indicator {
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 3px 15px;
+            border-radius: 20px;
+            font-size: 1rem;
+            z-index: 50;
+            display: none;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.8; transform: translateX(-50%) scale(1); }
+            50% { opacity: 1; transform: translateX(-50%) scale(1.05); }
+        }
+        .world-blood-moon { background: linear-gradient(90deg, #660000, #cc0000); border: 2px solid #ff3333; }
+        .world-glitched { background: linear-gradient(90deg, #330066, #6600cc); border: 2px solid #cc44ff; animation: glitchPulse 0.5s infinite; }
+        .world-golden { background: linear-gradient(90deg, #664400, #cc8800); border: 2px solid #ffd700; }
+
+        @keyframes glitchPulse {
+            0%, 100% { box-shadow: 0 0 10px #cc44ff; }
+            50% { box-shadow: 0 0 30px #ff00ff, 0 0 50px #00ffff; }
+        }
+
+        /* HEADER */
+        #header-stats {
+            grid-column: 1 / span 2;
+            background: rgba(0,0,0,0.6);
+            border-bottom: 2px solid var(--neon-pink);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            font-size: 1.4rem;
+            padding: 0 10px;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .stat-box { display: flex; gap: 4px; align-items: center; }
+        .bar-container { width: 90px; height: 14px; background: #222; border: 1px solid #555; border-radius: 5px; overflow: hidden; position: relative; }
+        .bar-fill { height: 100%; transition: width 0.3s ease; }
+        #hp-bar { background: linear-gradient(90deg, #cc0000, #ff5555); width: 100%; }
+        #xp-bar { background: linear-gradient(90deg, var(--neon-blue), #0088ff); width: 0%; }
+        #bond-bar { background: linear-gradient(90deg, var(--neon-green), #00cc88); width: 0%; }
+        #quest-bar { background: linear-gradient(90deg, var(--neon-gold), #ff9900); width: 0%; }
+
+        #class-badge {
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            border: 2px solid currentColor;
+            display: none;
+        }
+
+        #skill-points-indicator {
+            color: var(--neon-gold);
+            cursor: pointer;
+        }
+        #skill-points-indicator:hover {
+            text-shadow: 0 0 10px var(--neon-gold);
+        }
+
+        /* MAIN DISPLAY */
+        #main-display {
+            grid-column: 1;
+            padding: 15px 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            text-align: center;
+            position: relative;
+        }
+
+        .story-text { font-size: 1.8rem; line-height: 1.2; text-shadow: 2px 2px 0 #000; }
+        .combat-text { color: #ff5555; font-size: 1.6rem; animation: shake 0.3s; }
+        .loot-text { color: var(--neon-green); font-size: 1.6rem; animation: pop 0.3s; }
+        .boss-text { color: var(--neon-gold); font-size: 1.8rem; animation: glowPulse 1s infinite; }
+        .quest-text { color: var(--neon-gold); font-size: 1.5rem; }
+        .craft-anim { color: var(--neon-purple); font-size: 1.6rem; animation: pop 0.4s; }
+        .event-text { color: var(--neon-orange); font-size: 1.6rem; }
+        .level-text-anim { color: var(--neon-gold); font-size: 2.2rem; animation: pop 0.5s, glowPulse 0.5s; }
+        .pet-anim { color: var(--neon-green); font-size: 1.6rem; animation: float 1s ease-in-out; }
+        .skill-anim { color: var(--neon-cyan); font-size: 1.5rem; }
+        .critical-text { color: #ff0; font-size: 2rem; animation: criticalFlash 0.3s; }
+        @keyframes criticalFlash {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.3); text-shadow: 0 0 20px #ff0; }
+        }
+
+        /* ACTION AREA */
+        #action-area {
+            grid-column: 1;
+            border-top: 2px solid var(--neon-pink);
+            padding: 12px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            align-content: center;
+        }
+
+        button {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border: 2px solid var(--neon-blue);
+            color: white;
+            font-family: 'VT323', monospace;
+            font-size: 1.4rem;
+            padding: 9px 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 8px;
+            text-shadow: 1px 1px 0 #000;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.4s;
+        }
+
+        button:hover::before { left: 100%; }
+        button:hover { background: var(--neon-blue); color: #000; transform: scale(1.05); box-shadow: 0 0 12px var(--neon-blue); }
+        button:active { transform: scale(0.95); }
+        button:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(1); transform: none !important; }
+        .craft-btn { border-color: var(--neon-green); }
+        .craft-btn:hover { background: var(--neon-green); }
+        .danger-btn { border-color: var(--neon-red); }
+        .danger-btn:hover { background: var(--neon-red); color: white; }
+        .boss-btn { border-color: var(--neon-gold); animation: glowPulse 1s infinite; }
+        .boss-btn:hover { background: var(--neon-gold); color: #000; }
+        .quest-btn { border-color: var(--neon-gold); }
+        .quest-btn:hover { background: var(--neon-gold); color: #000; }
+        .special-btn { border-color: var(--neon-purple); }
+        .special-btn:hover { background: var(--neon-purple); }
+        .skill-btn { border-color: var(--neon-cyan); }
+        .skill-btn:hover { background: var(--neon-cyan); color: #000; }
+
+        /* SIDE PANEL */
+        #side-panel {
+            grid-column: 2;
+            grid-row: 2 / span 2;
+            border-left: 2px solid var(--neon-pink);
+            padding: 8px;
+            background: rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+        }
+
+        h2 { margin: 0; color: var(--neon-pink); text-align: center; font-size: 1.4rem; border-bottom: 1px dashed #666; padding-bottom: 3px; }
+        h3 { margin: 5px 0; color: var(--neon-cyan); font-size: 1.2rem; }
+
+        /* Inventory Filters */
+        #inv-filters { display: flex; gap: 4px; flex-wrap: wrap; }
+        #inv-filters button { font-size: 0.9rem; padding: 3px 5px; flex: 1; }
+        .filter-active { background: var(--neon-pink) !important; color: #000 !important; border-color: var(--neon-pink) !important; }
+
+        #inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+        }
+
+        .item-slot {
+            background: #1a1a2e;
+            border: 1px solid #444;
+            height: 48px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.8rem;
+            cursor: help;
+            position: relative;
+            border-radius: 4px;
+            transition: all 0.15s;
+        }
+        .item-slot:hover { border-color: white; background: #333; transform: scale(1.05); }
+        .item-slot:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 110%;
+            right: 0;
+            background: #000;
+            border: 1px solid var(--neon-blue);
+            padding: 5px 8px;
+            font-size: 1rem;
+            white-space: nowrap;
+            z-index: 999;
+            border-radius: 4px;
+            color: var(--neon-blue);
+            pointer-events: none;
+        }
+        .item-slot.special-item { border-color: var(--neon-gold); box-shadow: 0 0 6px var(--neon-gold); }
+        .item-slot.weapon-item { border-color: var(--neon-red); }
+        .item-slot.consumable-item { border-color: var(--neon-green); }
+
+        #pet-display {
+            text-align: center;
+            border: 1px solid var(--neon-green);
+            padding: 8px;
+            border-radius: 8px;
+            background: rgba(0,50,0,0.15);
+        }
+        #pet-avatar { font-size: 3.5rem; animation: float 3s infinite ease-in-out; }
+        #pet-stage-label { font-size: 0.9rem; color: var(--neon-gold); }
+
+        /* Quest panel */
+        #quest-panel { border: 1px solid var(--neon-gold); border-radius: 6px; padding: 6px; background: rgba(50,40,0,0.2); }
+        #quest-panel p { margin: 3px 0; font-size: 1.1rem; line-height: 1.2; }
+
+        /* MODALS */
+        #modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.92);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 100;
+        }
+        #modal-content {
+            background: #0a0a1a;
+            border: 4px solid gold;
+            padding: 40px;
+            text-align: center;
+            max-width: 640px;
+            animation: pop 0.5s;
+            border-radius: 12px;
+            box-shadow: 0 0 40px gold;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .ending-title { font-size: 2.8rem; color: gold; margin-bottom: 15px; text-shadow: 0 0 20px gold; }
+        #ending-desc { font-size: 1.5rem; line-height: 1.4; }
+
+        /* Event Modal */
+        #event-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 99;
+        }
+        #event-content {
+            background: #0a0a1a;
+            border: 3px solid var(--neon-orange);
+            padding: 30px;
+            text-align: center;
+            max-width: 560px;
+            border-radius: 10px;
+            box-shadow: 0 0 25px var(--neon-orange);
+        }
+        #event-title { font-size: 2.2rem; color: var(--neon-orange); margin-bottom: 10px; }
+        #event-desc { font-size: 1.5rem; margin-bottom: 20px; }
+        #event-choices { display: flex; flex-direction: column; gap: 8px; }
+
+        /* Class Selection Modal */
+        #class-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 98;
+        }
+        #class-content {
+            background: linear-gradient(135deg, #0a0a1a, #1a1a3a);
+            border: 4px solid var(--neon-purple);
+            padding: 30px;
+            text-align: center;
+            max-width: 700px;
+            border-radius: 15px;
+            box-shadow: 0 0 40px var(--neon-purple);
+        }
+        #class-title { font-size: 2.5rem; color: var(--neon-purple); margin-bottom: 20px; text-shadow: 0 0 15px var(--neon-purple); }
+        #class-choices { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 15px; }
+        .class-card {
+            background: rgba(0,0,0,0.5);
+            border: 2px solid #444;
+            border-radius: 10px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .class-card:hover { border-color: var(--neon-gold); transform: scale(1.05); box-shadow: 0 0 20px rgba(255,215,0,0.3); }
+        .class-card h4 { margin: 0 0 10px; font-size: 1.5rem; }
+        .class-card p { margin: 5px 0; font-size: 1.1rem; color: #aaa; }
+        .class-icon { font-size: 3rem; margin-bottom: 10px; }
+
+        /* Skill Tree Modal */
+        #skill-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 97;
+        }
+        #skill-content {
+            background: linear-gradient(135deg, #0a0a1a, #1a1a3a);
+            border: 4px solid var(--neon-cyan);
+            padding: 25px;
+            text-align: center;
+            max-width: 750px;
+            width: 90%;
+            border-radius: 15px;
+            box-shadow: 0 0 40px var(--neon-cyan);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        #skill-title { font-size: 2.2rem; color: var(--neon-cyan); margin-bottom: 10px; }
+        #skill-points { font-size: 1.5rem; color: var(--neon-gold); margin-bottom: 15px; }
+
+        #skill-trees { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+        .skill-tree-column { background: rgba(0,0,0,0.4); border-radius: 10px; padding: 10px; border: 1px solid #333; }
+        .skill-tree-column h4 { margin: 0 0 10px; font-size: 1.4rem; border-bottom: 1px solid #555; padding-bottom: 5px; }
+
+        .skill-node {
+            background: rgba(30,30,50,0.8);
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 8px;
+            margin: 6px 0;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+        .skill-node:hover:not(.locked) { border-color: var(--neon-cyan); background: rgba(0,100,100,0.3); }
+        .skill-node.unlocked { border-color: var(--neon-green); background: rgba(0,50,0,0.3); }
+        .skill-node.locked { opacity: 0.5; cursor: not-allowed; }
+        .skill-name { font-size: 1.2rem; color: var(--neon-cyan); }
+        .skill-desc { font-size: 1rem; color: #888; margin-top: 3px; }
+        .skill-cost { font-size: 0.9rem; color: var(--neon-gold); margin-top: 3px; }
+
+        /* True Boss Phase Effects */
+        .phase-transition {
+            animation: phaseFlash 1s;
+        }
+        @keyframes phaseFlash {
+            0%, 100% { filter: none; }
+            25%, 75% { filter: invert(1) hue-rotate(180deg); }
+            50% { filter: brightness(3); }
+        }
+
+        /* ANIMATIONS */
+        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+        @keyframes shake { 0%{transform:translate(1px,1px)} 25%{transform:translate(-2px,-2px)} 50%{transform:translate(2px,0)} 100%{transform:translate(0,0)} }
+        @keyframes pop { 0%{transform:scale(0.5);opacity:0} 100%{transform:scale(1);opacity:1} }
+        @keyframes glowPulse { 0%,100%{box-shadow:0 0 5px var(--neon-gold)} 50%{box-shadow:0 0 20px var(--neon-gold),0 0 40px var(--neon-gold)} }
+        @keyframes bossEntrance { 0%{transform:scale(3);opacity:0} 100%{transform:scale(1);opacity:1} }
+
+        .hidden { display: none !important; }
+        .log-entry { margin-bottom: 8px; border-bottom: 1px solid #1a1a2e; padding-bottom: 4px; }
+        .location-badge { 
+            display: inline-block; padding: 3px 10px; border-radius: 20px; 
+            font-size: 1.3rem; margin-bottom: 5px;
+            border: 1px solid currentColor;
+        }
+        #location-indicator { text-align: center; font-size: 1.2rem; color: #888; padding: 2px 0; }
+
+        /* NG+ Badge */
+        #ng-plus-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: linear-gradient(135deg, #660066, #cc00cc);
+            padding: 3px 12px;
+            border-radius: 15px;
+            font-size: 1rem;
+            border: 2px solid #ff00ff;
+            display: none;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: var(--neon-pink); border-radius: 3px; }
+
+        /* Damage Type Icons */
+        .dmg-physical { color: #ff6666; }
+        .dmg-magical { color: #6666ff; }
+        .dmg-true { color: #ffffff; }
+        .dmg-chaos { color: #ff00ff; animation: glitchPulse 0.2s infinite; }
+    </style>
+</head>
+<body>
+    <canvas id="particle-canvas"></canvas>
+
+    <div id="game-container">
+        <div id="world-state-indicator"></div>
+        <div id="ng-plus-badge">NG+<span id="ng-cycle">1</span></div>
+
+        <div id="header-stats">
+            <div class="stat-box">❤️ <div class="bar-container"><div id="hp-bar" class="bar-fill"></div></div> <span id="hp-text">100/100</span></div>
+            <div class="stat-box">✨ <div class="bar-container"><div id="xp-bar" class="bar-fill"></div></div> Lv<span id="level-text">1</span></div>
+            <div class="stat-box">💰<span id="gold-text">0</span></div>
+            <div class="stat-box" id="skill-points-indicator" onclick="UISystem.showSkillTree()">🎯<span id="sp-text">0</span> SP</div>
+            <div class="stat-box">📜<div class="bar-container"><div id="quest-bar" class="bar-fill"></div></div></div>
+            <div id="class-badge"></div>
+            <div class="stat-box"><button style="font-size:0.75rem;padding:2px 5px;" onclick="SaveController.saveGame()">💾SAVE</button></div>
+            <div class="stat-box"><button style="font-size:0.75rem;padding:2px 5px;" onclick="UISystem.showExportImport()">📤</button></div>
+        </div>
+
+        <div id="main-display">
+            <div style="font-size:2.8rem;animation:pop 0.8s">🦄 CHAOS QUEST v3.0 EVOLVED 🏰</div>
+            <p class="story-text">Welcome, pixel wanderer. The world has EVOLVED. The duck has prophecied AGAIN. You STILL have no pants.</p>
+            <p style="color:#888;font-size:1.3rem">What do you do?</p>
+        </div>
+
+        <div id="side-panel">
+            <h2>🎒 BACKPACK</h2>
+            <div id="inv-filters">
+                <button onclick="UISystem.setFilter('all')" class="filter-active" id="filter-all">All</button>
+                <button onclick="UISystem.setFilter('mat')" id="filter-mat">🪨Mat</button>
+                <button onclick="UISystem.setFilter('con')" id="filter-con">🍷Use</button>
+                <button onclick="UISystem.setFilter('wep')" id="filter-wep">⚔️Wep</button>
+                <button onclick="UISystem.setFilter('special')" id="filter-special">⭐Spec</button>
+            </div>
+            <div id="inventory-grid"></div>
+
+            <div>
+                <h2>🧬 STATS</h2>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;font-size:1.2rem;">
+                    <p style="margin:2px">💪<span id="str-val">5</span></p>
+                    <p style="margin:2px">⚡<span id="spd-val">5</span></p>
+                    <p style="margin:2px">🍀<span id="lck-val">5</span></p>
+                    <p style="margin:2px">🛡️<span id="def-val">0</span></p>
+                    <p style="margin:2px">🔥<span id="mag-val">0</span></p>
+                </div>
+            </div>
+
+            <div>
+                <h2>🐾 PET</h2>
+                <div id="pet-display" class="hidden">
+                    <div id="pet-avatar">🥚</div>
+                    <div id="pet-name" style="font-size:1.3rem">?</div>
+                    <div id="pet-stage-label">Stage 1</div>
+                    <div class="bar-container" style="margin:4px auto;height:8px;width:90%"><div id="bond-bar" class="bar-fill"></div></div>
+                    <small style="color:#888">Bond</small>
+                    <div id="pet-ability" style="font-size:1rem;color:var(--neon-purple);margin-top:3px;"></div>
+                </div>
+                <div id="no-pet-msg" style="text-align:center;color:#666;font-size:1.3rem">No pet. sadge.</div>
+            </div>
+
+            <div>
+                <h2>📜 QUEST</h2>
+                <div id="quest-panel">
+                    <p id="quest-name" style="color:var(--neon-gold)">None Active</p>
+                    <p id="quest-progress" style="color:#aaa"></p>
+                </div>
+            </div>
+
+            <div>
+                <h2>🔨 CRAFTING</h2>
+                <div id="crafting-list"></div>
+            </div>
+        </div>
+
+        <div id="action-area"></div>
+    </div>
+
+    <!-- Ending Modal -->
+    <div id="modal-overlay">
+        <div id="modal-content">
+            <div class="ending-title" id="ending-title">ENDING UNLOCKED</div>
+            <p id="ending-desc" style="font-size:1.5rem">...</p>
+            <button onclick="UISystem.resetGame()" style="margin-top:20px;border-color:gold;">🔄 REINCARNATE</button>
+            <button id="ngplus-btn" onclick="UISystem.startNewGamePlus()" style="margin-top:10px;border-color:var(--neon-purple);display:none;">🌟 NEW GAME+</button>
+        </div>
+    </div>
+
+    <!-- Event Modal -->
+    <div id="event-modal">
+        <div id="event-content">
+            <div id="event-title">?? EVENT ??</div>
+            <p id="event-desc"></p>
+            <div id="event-choices"></div>
+        </div>
+    </div>
+
+    <!-- Class Selection Modal -->
+    <div id="class-modal">
+        <div id="class-content">
+            <div id="class-title">⚔️ CHOOSE YOUR CLASS ⚔️</div>
+            <p style="font-size:1.3rem;color:#aaa">You have reached Level 5! Select your path:</p>
+            <div id="class-choices"></div>
+        </div>
+    </div>
+
+    <!-- Skill Tree Modal -->
+    <div id="skill-modal">
+        <div id="skill-content">
+            <div id="skill-title">🌳 SKILL TREE 🌳</div>
+            <div id="skill-points">Available Points: <span id="available-sp">0</span></div>
+            <div id="skill-trees"></div>
+            <button onclick="UISystem.closeSkillTree()" style="margin-top:15px;">✖️ CLOSE</button>
+        </div>
+    </div>
+
+<script>
+/* ============================================================
+   CHAOS QUEST v3.0 EVOLVED - MODULAR RPG ENGINE
+   ============================================================
+   
+   ARCHITECTURE:
+   - CoreEngine: Game state, base utilities
+   - CombatEngine: Battle mechanics, damage calculations
+   - QuestEngine: Quest tracking, completion
+   - PetEngine: Pet management, evolution
+   - CraftEngine: Crafting recipes, materials
+   - WorldEventEngine: Random events, world states
+   - SkillTreeEngine: Skill points, passive abilities
+   - ClassEngine: Class bonuses, special abilities
+   - UISystem: Rendering, interactions
+   - SaveController: Persistence, import/export
+   
+   ============================================================ */
+
+/* ============================================================
+   SECTION 1: DATA DEFINITIONS (Preserved + Expanded)
+   ============================================================ */
+
+const GAME_VERSION = '3.0';
+
+// ==================== ITEMS DATA ====================
+const ITEMS = {
+    // Original materials
+    'berry':       { icon:'🍒', name:'Angry Berry',     type:'mat',     desc:'It vibrates with rage.' },
+    'rock':        { icon:'🪨', name:'Shiny Rock',      type:'mat',     desc:'Just a rock. Or is it?' },
+    'wood':        { icon:'🪵', name:'Weird Wood',      type:'mat',     desc:'Smells like cheese.' },
+    'crystal':     { icon:'💎', name:'Mana Crystal',    type:'mat',     desc:'Shiny! +5 MAG if crafted.' },
+    'dust':        { icon:'✨', name:'Fairy Dust',      type:'mat',     desc:'Sneeze powder.' },
+    // Original consumables & weapons
+    'potion':      { icon:'🍷', name:'Red Goop',        type:'con',     desc:'Heals 50 HP', effect:(s)=>{CoreEngine.heal(50);} },
+    'axe':         { icon:'🪓', name:'Rock Axe',        type:'wep',     desc:'+3 STR', stat:'str', val:3 },
+    'cloak':       { icon:'🧥', name:'Shadow Cloak',    type:'arm',     desc:'+3 DEF', stat:'def', val:3 },
+    'orb':         { icon:'🔮', name:'Chaos Orb',       type:'wep',     desc:'+10 LCK', stat:'lck', val:10 },
+    'duck_feather':{ icon:'🪶', name:'God Feather',     type:'special', desc:'Pulsating power. Very quack.' },
+    // New materials
+    'magma_shard': { icon:'🔴', name:'Magma Shard',     type:'mat',     desc:'Ouch. Hot. Stop touching.' },
+    'obsidian':    { icon:'🪨', name:'Obsidian Chunk',  type:'mat',     desc:'Sharp enough to cut reality.' },
+    'gem_raw':     { icon:'💠', name:'Raw Gemstone',    type:'mat',     desc:'Uncut beauty. Like you.' },
+    'cloud_fluff': { icon:'☁️', name:'Cloud Fluff',    type:'mat',     desc:'Somehow solid. Physics said no.' },
+    'lightning_jar':{ icon:'⚡', name:'Lightning Jar',  type:'mat',     desc:'Someone bottled a thunderstorm.' },
+    'void_goo':    { icon:'🖤', name:'Void Goo',        type:'mat',     desc:'It smells like nothing. That\'s worse.' },
+    'bone_dust':   { icon:'🦴', name:'Bone Dust',       type:'mat',     desc:'From what? Better not ask.' },
+    // New consumables
+    'elixir':      { icon:'💚', name:'Ultra Elixir',    type:'con',     desc:'Heals 100 HP + +1 STR', effect:(s)=>{CoreEngine.heal(100); CoreEngine.state.stats.str++;} },
+    'bomb':        { icon:'💣', name:'Chaos Bomb',      type:'con',     desc:'Deals 50 dmg in combat!', combatOnly:true, effect:(s)=>{CombatEngine.useBombInCombat();} },
+    'speed_juice':  { icon:'🏃', name:'Speed Juice',   type:'con',     desc:'+3 SPD temporarily', effect:(s)=>{CoreEngine.state.stats.spd+=3; UISystem.log('⚡ You vibrate at dangerous speeds. +3 SPD!');} },
+    'mana_brew':   { icon:'🫧', name:'Mana Brew',       type:'con',     desc:'Heals 30 HP +5 MAG', effect:(s)=>{CoreEngine.heal(30); CoreEngine.state.stats.mag+=5; UISystem.log('🔮 Your hands glow suspiciously. +5 MAG!');} },
+    // New weapons & armor
+    'lava_sword':  { icon:'🗡️', name:'Lava Blade',     type:'wep',     desc:'+8 STR +3 MAG', stat:'str', val:8, stat2:'mag', val2:3 },
+    'gem_staff':   { icon:'🔯', name:'Gem Staff',       type:'wep',     desc:'+5 MAG +3 LCK', stat:'mag', val:5, stat2:'lck', val2:3 },
+    'cloud_armor': { icon:'🧤', name:'Cloud Armor',     type:'arm',     desc:'+6 DEF +2 SPD', stat:'def', val:6, stat2:'spd', val2:2 },
+    'void_blade':  { icon:'🌑', name:'Void Blade',      type:'wep',     desc:'+12 STR -2 DEF (cursed)', stat:'str', val:12, stat2:'def', val2:-2 },
+    'thunder_robe':{ icon:'⛈️', name:'Thunder Robe',   type:'arm',     desc:'+8 MAG +3 DEF', stat:'mag', val:8, stat2:'def', val2:3 },
+    // Special / rare
+    'chaos_core':  { icon:'🌀', name:'Chaos Core',      type:'special', desc:'Radiates pure nonsense.' },
+    'duck_crown':  { icon:'👑', name:'Duck Crown',      type:'special', desc:'For royalty. Duck royalty.' },
+    'void_heart':  { icon:'💜', name:'Void Heart',      type:'special', desc:'Beats out of sync with time.' },
+    'cosmic_egg':  { icon:'🥚', name:'Cosmic Egg',      type:'special', desc:'What\'s inside? Yes.' },
+    'glitch_token':{ icon:'📟', name:'Glitch Token',    type:'special', desc:'0x4E554C4C. You don\'t want to know.' },
+    'rainbow_shard':{ icon:'🌈', name:'Rainbow Shard',  type:'special', desc:'Tastes like winning.' },
+    'true_essence':{ icon:'⭐', name:'True Essence',    type:'special', desc:'Fragment of the TRUE ending.' },
+};
+
+// ==================== RECIPES ====================
+const RECIPES = [
+    // Original
+    { req:['berry','rock'],            res:'potion',       name:'Brew Potion' },
+    { req:['wood','rock'],             res:'axe',          name:'Forge Axe' },
+    { req:['dust','crystal'],          res:'orb',          name:'Craft Orb' },
+    { req:['wood','wood','dust'],      res:'cloak',        name:'Sew Cloak' },
+    // New single-area crafts
+    { req:['magma_shard','obsidian'],           res:'lava_sword',    name:'Forge Lava Blade' },
+    { req:['gem_raw','crystal'],                res:'gem_staff',     name:'Enchant Gem Staff' },
+    { req:['cloud_fluff','cloud_fluff'],        res:'cloud_armor',   name:'Weave Cloud Armor' },
+    { req:['void_goo','obsidian'],              res:'void_blade',    name:'Forge Void Blade' },
+    { req:['lightning_jar','crystal'],          res:'thunder_robe',  name:'Craft Thunder Robe' },
+    { req:['berry','berry','dust'],             res:'elixir',        name:'Brew Elixir' },
+    { req:['magma_shard','dust'],               res:'bomb',          name:'Build Chaos Bomb' },
+    { req:['lightning_jar','wood'],             res:'speed_juice',   name:'Brew Speed Juice' },
+    { req:['crystal','void_goo'],               res:'mana_brew',     name:'Brew Mana Brew' },
+    // Combo crafts
+    { req:['lava_sword','orb'],                 res:'chaos_core',    name:'⚠️ COMBO: Chaos Core' },
+    { req:['duck_feather','cloud_fluff','gem_raw'], res:'duck_crown', name:'⚠️ COMBO: Duck Crown' },
+    { req:['void_goo','bone_dust','void_goo'], res:'void_heart',    name:'⚠️ COMBO: Void Heart' },
+    { req:['chaos_core','duck_crown'],           res:'rainbow_shard', name:'✨ LEGENDARY: Rainbow Shard' },
+    { req:['rainbow_shard','cosmic_egg','void_heart'], res:'true_essence', name:'🌟 TRUE: True Essence' },
+];
+
+// ==================== LOCATIONS ====================
+const LOCATIONS = {
+    'forest':  { name:'🌲 Spooky Forest',    color:'#2ecc71', enemies:['slime','goblin'],        boss:'boss_treant',   loot:['berry','wood','dust'],           explored:0 },
+    'tower':   { name:'🏰 Mage Tower',       color:'#9b59b6', enemies:['book','armor'],          boss:'boss_lich',     loot:['crystal','dust','rock'],         explored:0 },
+    'river':   { name:'🌊 Acid River',       color:'#3498db', enemies:['frog','fish'],           boss:'boss_kraken',   loot:['berry','rock','wood'],           explored:0 },
+    'portal':  { name:'🌀 Void Portal',      color:'#8e44ad', enemies:['shade','glitch'],        boss:'boss_duck',     loot:['dust','crystal','void_goo'],     explored:0 },
+    // New areas
+    'lava':    { name:'🌋 Lava Caves',       color:'#cc4400', enemies:['magma_imp','lava_golem'],boss:'boss_volcano',  loot:['magma_shard','obsidian','bone_dust'], explored:0 },
+    'crystal_mine':{ name:'💎 Crystal Mines',color:'#00aacc', enemies:['crystal_spider','gem_golem'],boss:'boss_gem_dragon',loot:['gem_raw','crystal','rock'], explored:0 },
+    'cloud':   { name:'☁️ Cloud Citadel',   color:'#aaaaff', enemies:['cloud_knight','storm_raven'],boss:'boss_thunder_king',loot:['cloud_fluff','lightning_jar','dust'], explored:0 },
+    // True Boss Arena
+    'void_throne':{ name:'🌑 Void Throne',  color:'#220044', enemies:[],                       boss:'boss_true_duck',loot:['void_goo','crystal','dust'],     explored:0, locked:true },
+};
+
+// ==================== ENEMIES ====================
+const ENEMIES = {
+    // Original
+    'slime':       { name:'Sassy Slime',        icon:'🟢', hp:30,  dmg:5,  xp:20,  gold:5,   drop:'berry' },
+    'goblin':      { name:'Capitalist Goblin',  icon:'👺', hp:50,  dmg:8,  xp:35,  gold:15,  drop:'rock' },
+    'book':        { name:'Flying Dictionary',  icon:'📖', hp:40,  dmg:12, xp:40,  gold:10,  drop:'dust' },
+    'armor':       { name:'Empty Suit',         icon:'🛡️', hp:80,  dmg:10, xp:60,  gold:20,  drop:'crystal' },
+    'frog':        { name:'Banjo Frog',         icon:'🐸', hp:60,  dmg:6,  xp:45,  gold:10,  drop:'wood' },
+    'fish':        { name:'Leggy Fish',         icon:'🐟', hp:45,  dmg:15, xp:50,  gold:8,   drop:'berry' },
+    'shade':       { name:'Your Ex',            icon:'👻', hp:100, dmg:15, xp:100, gold:50,  drop:'void_goo' },
+    'glitch':      { name:'M̵i̵s̵s̵i̵n̵g̵N̵o̵',        icon:'👾', hp:150, dmg:20, xp:200, gold:100, drop:'glitch_token' },
+    // Original bosses
+    'boss_duck':   { name:'THE OMEGA DUCK',     icon:'🦆', hp:500, dmg:30, xp:1000,gold:999, isBoss:true, drop:'duck_feather',
+                     abilities:['aoe','heal','quack_buff'] },
+    // New standard enemies
+    'magma_imp':   { name:'Magma Imp',          icon:'🔴', hp:70,  dmg:14, xp:60,  gold:18,  drop:'magma_shard' },
+    'lava_golem':  { name:'Lava Golem',         icon:'🗿', hp:120, dmg:18, xp:90,  gold:30,  drop:'obsidian' },
+    'crystal_spider':{ name:'Jewel Spider',     icon:'🕷️', hp:55,  dmg:11, xp:55,  gold:22,  drop:'gem_raw' },
+    'gem_golem':   { name:'Gem Golem',          icon:'💎', hp:130, dmg:16, xp:95,  gold:35,  drop:'crystal' },
+    'cloud_knight':{ name:'Cloud Knight',       icon:'☁️', hp:90,  dmg:13, xp:75,  gold:25,  drop:'cloud_fluff' },
+    'storm_raven': { name:'Storm Raven',        icon:'🦅', hp:65,  dmg:20, xp:80,  gold:20,  drop:'lightning_jar' },
+    // New bosses
+    'boss_treant': { name:'GARY THE TREANT',    icon:'🌳', hp:350, dmg:22, xp:600, gold:400, isBoss:true, drop:'wood',
+                     abilities:['root_trap','bark_regen','leaf_aoe'],
+                     flavor:'Gary is just a tree that got REALLY fed up.' },
+    'boss_lich':   { name:'LETHARGIC LICH',     icon:'💀', hp:400, dmg:28, xp:750, gold:500, isBoss:true, drop:'dust',
+                     abilities:['bone_storm','life_drain','curse_debuff'],
+                     flavor:'He unsubscribed from life to focus on death.' },
+    'boss_kraken': { name:'KAREN THE KRAKEN',   icon:'🦑', hp:450, dmg:25, xp:800, gold:600, isBoss:true, drop:'crystal',
+                     abilities:['tentacle_aoe','ink_blind','tidal_wave'],
+                     flavor:'She demands to speak with the ocean manager.' },
+    'boss_volcano':{ name:'MT. BOOMZILLA',      icon:'🌋', hp:500, dmg:35, xp:900, gold:700, isBoss:true, drop:'magma_shard',
+                     abilities:['eruption_aoe','lava_shield','magma_surge'],
+                     flavor:'A volcano with feelings. Very hot feelings.' },
+    'boss_gem_dragon':{ name:'DIAMONDEUS REX',  icon:'🐉', hp:600, dmg:30, xp:1100,gold:800, isBoss:true, drop:'gem_raw',
+                     abilities:['gem_breath','crystal_armor','hoard_buff'],
+                     flavor:'It cried crystals. Tears of pure greed.' },
+    'boss_thunder_king':{ name:'ZAPPINGTON III', icon:'⚡', hp:550, dmg:40, xp:1200,gold:900, isBoss:true, drop:'lightning_jar',
+                     abilities:['lightning_storm','chain_lightning','overcharge'],
+                     flavor:'3rd in a dynasty of kings named Zappington. Tragic.' },
+    // TRUE FINAL BOSS
+    'boss_true_duck':{ name:'THE ABSOLUTE DUCK', icon:'🦆', hp:1500, dmg:50, xp:5000, gold:5000, isBoss:true, drop:'true_essence',
+                      abilities:['void_quack','reality_tear','duckception','phase_shift'],
+                      flavor:'The prophecy was true. The duck was always the god. And now it shows its TRUE form.',
+                      isTrueBoss:true, phases:3 },
+};
+
+// ==================== PETS ====================
+const PETS = {
+    'wolf':    { name:'Wolfdog',     icon:'🐺', bonus:'str', stages:['🐺','🦊','🦁'], abilityDesc:'Bonus attack 30% of turns' },
+    'fairy':   { name:'Nagging Navi',icon:'🧚', bonus:'lck', stages:['🧚','🦋','🌟'], abilityDesc:'Restores 5 HP 25% of turns' },
+    'duck':    { name:'Quackthulhu', icon:'🦆', bonus:'all', stages:['🐣','🦆','🦅'], abilityDesc:'Random buff every 3 turns' },
+    'cat':     { name:'Ominous Cat', icon:'🐱', bonus:'spd', stages:['🐱','😼','😈'], abilityDesc:'Steals gold from enemies 20% chance' },
+    'dragon':  { name:'Smoldragon',  icon:'🐲', bonus:'mag', stages:['🥚','🐲','🔥'], abilityDesc:'Fire blast 15% of turns (bonus dmg)' },
+};
+
+// ==================== QUESTS ====================
+const QUESTS = {
+    'collect_rocks': { name:'🪨 Rock Hoarder',   type:'collect', item:'rock',    goal:3,  reward:{ gold:100, xp:200 }, desc:'Collect 3 Shiny Rocks' },
+    'collect_dust':  { name:'✨ Dust Bunny',     type:'collect', item:'dust',    goal:5,  reward:{ gold:150, xp:300 }, desc:'Collect 5 Fairy Dust' },
+    'kill_5':        { name:'⚔️ Warmonger',      type:'kill',    goal:5,         reward:{ gold:200, xp:400, item:'elixir' }, desc:'Defeat 5 enemies' },
+    'kill_boss':     { name:'🏆 Boss Slayer',    type:'killboss',goal:1,         reward:{ gold:500, xp:800, item:'chaos_core' }, desc:'Defeat any Boss' },
+    'visit_all':     { name:'🗺️ Cartographer',  type:'explore', goal:7,         reward:{ gold:300, xp:600, item:'cloud_fluff' }, desc:'Visit all 7 locations' },
+    'craft_5':       { name:'🔨 Craftaholic',    type:'craft',   goal:5,         reward:{ gold:250, xp:500, item:'gem_raw' }, desc:'Craft 5 items' },
+    'true_boss':     { name:'🌟 The True Path',  type:'trueboss',goal:1,         reward:{ gold:9999, xp:9999, item:'true_essence' }, desc:'Defeat THE ABSOLUTE DUCK' },
+};
+
+// ==================== NPC LINES ====================
+const NPC_LINES = [
+    "🧙 Old Wizard: 'I once turned a goblin into a mailbox. Don't ask.'",
+    "🧝 Elf Merchant: 'My prices are high because I have ELF-ESTEEM issues.'",
+    "🐸 Frog Philosopher: 'Is water wet? Is a duck... doing okay?'",
+    "👴 Village Elder: 'Back in my day, we walked uphill both ways to die in dungeons.'",
+    "🤖 Glitch Bot: 'ERRE̷R̷: M̴̤̓Y̷̮͌ ̶̼͑E̷̪̐X̸̞͗I̵̤͒S̸̯͝T̸̤̾E̶̺͠N̴̙̂C̸̣͝E̸̘̿ ̴̤̔I̶̠͊S̷̼͋ ̸̦̈A̷̰̕ ̵̺̈́G̵̳͗L̶̘̓I̸͇͝T̴̯͘C̵̰̓H̶͇͝.'",
+    "🦆 The Duck: 'QUACK.' (You felt it in your soul.)",
+    "💀 Friendly Skeleton: 'I lost my body but I kept my sense of humor! ...help.'",
+    "🧟 Zombie: 'brains... jk, I'm vegetarian now. any berries?'",
+    "🧜 Mermaid: 'I wanted legs. I got legs. I hate legs.'",
+    "🔮 Mysterious Orb: 'Your future is: chaos. Just... pure chaos.'",
+    "🎭 Void Entity: 'I see you\'ve been grinding. The duck approves.'",
+    "👨‍🔧 Blacksmith: 'Need something sharp? I\'ve got swords, axes, and questionable life advice.'",
+];
+
+// ==================== CLASSES ====================
+const CLASSES = {
+    'chaos_knight': {
+        name: 'Chaos Knight',
+        icon: '⚔️',
+        desc: 'A warrior blessed by chaos itself. Strength and defense scaling.',
+        bonuses: { str_mult: 1.2, def_mult: 1.15, base_str: 3, base_def: 2 },
+        color: '#ff6666',
+        special: 'Rage Mode: +50% damage when HP < 30%'
+    },
+    'glitch_mage': {
+        name: 'Glitch Mage',
+        icon: '🔮',
+        desc: 'A mage whose spells defy reality. High luck synergy.',
+        bonuses: { mag_mult: 1.3, lck_mult: 1.2, base_mag: 5, base_lck: 3 },
+        color: '#6666ff',
+        special: 'Spell Chaos: 15% chance for double spell damage'
+    },
+    'duck_apostle': {
+        name: 'Duck Apostle',
+        icon: '🦆',
+        desc: 'A devoted follower of the Duck God. Pet-focused bonuses.',
+        bonuses: { pet_bond_mult: 1.5, pet_dmg_mult: 1.3, base_lck: 2 },
+        color: '#ffcc00',
+        special: 'Duck Blessing: Pets never die, revive at 1 HP once per battle'
+    },
+    'void_hacker': {
+        name: 'Void Hacker',
+        icon: '👾',
+        desc: 'A reality manipulator. RNG is your playground.',
+        bonuses: { lck_mult: 1.4, event_mult: 1.5, base_spd: 3, base_lck: 2 },
+        color: '#cc44ff',
+        special: 'Reality Glitch: 10% chance to trigger rare events on explore'
+    }
+};
+
+// ==================== SKILL TREE ====================
+const SKILL_TREES = {
+    strength: {
+        name: '💪 Strength Path',
+        skills: [
+            { id: 'str_boost1', name: 'Power Strike', desc: '+5% melee damage', cost: 1, effect: { dmg_mult: 0.05 } },
+            { id: 'str_boost2', name: 'Brutal Force', desc: '+10% melee damage', cost: 2, requires: 'str_boost1', effect: { dmg_mult: 0.10 } },
+            { id: 'crit_strike', name: 'Critical Strike', desc: 'Unlock critical hits', cost: 2, requires: 'str_boost1', effect: { crit_unlock: true } },
+            { id: 'crit_dmg', name: 'Critical Power', desc: '+50% crit damage', cost: 3, requires: 'crit_strike', effect: { crit_dmg_mult: 0.5 } },
+            { id: 'rage_mode', name: 'Rage Mode', desc: '+25% dmg when HP < 30%', cost: 4, requires: 'str_boost2', effect: { rage_dmg: 0.25 } },
+        ]
+    },
+    defense: {
+        name: '🛡️ Defense Path',
+        skills: [
+            { id: 'def_boost1', name: 'Tough Skin', desc: '+5% damage reduction', cost: 1, effect: { dmg_reduction: 0.05 } },
+            { id: 'def_boost2', name: 'Iron Will', desc: '+10% damage reduction', cost: 2, requires: 'def_boost1', effect: { dmg_reduction: 0.10 } },
+            { id: 'thorns', name: 'Thorns', desc: 'Reflect 10% damage', cost: 2, requires: 'def_boost1', effect: { thorns: 0.10 } },
+            { id: 'thorns_plus', name: 'Bramble Armor', desc: 'Reflect 25% damage', cost: 3, requires: 'thorns', effect: { thorns: 0.25 } },
+            { id: 'shield_wall', name: 'Shield Wall', desc: 'Once per battle, block all damage', cost: 4, requires: 'def_boost2', effect: { shield_wall: true } },
+        ]
+    },
+    luck: {
+        name: '🍀 Luck Path',
+        skills: [
+            { id: 'lck_boost1', name: 'Fortune\'s Favor', desc: '+5% rare drop chance', cost: 1, effect: { rare_drop: 0.05 } },
+            { id: 'lck_boost2', name: 'Lucky Star', desc: '+10% rare drop chance', cost: 2, requires: 'lck_boost1', effect: { rare_drop: 0.10 } },
+            { id: 'event_lck', name: 'Fated Events', desc: '+20% event trigger chance', cost: 2, requires: 'lck_boost1', effect: { event_chance: 0.20 } },
+            { id: 'crit_lck', name: 'Lucky Crits', desc: '+25% crit chance', cost: 3, requires: 'lck_boost2', effect: { crit_chance: 0.25 } },
+            { id: 'jackpot', name: 'Jackpot', desc: '2x gold from enemies', cost: 4, requires: 'lck_boost2', effect: { gold_mult: 2 } },
+        ]
+    },
+    pet_master: {
+        name: '🐾 Pet Master Path',
+        skills: [
+            { id: 'pet_dmg1', name: 'Beast Bond', desc: '+15% pet damage', cost: 1, effect: { pet_dmg: 0.15 } },
+            { id: 'pet_dmg2', name: 'Alpha Predator', desc: '+30% pet damage', cost: 2, requires: 'pet_dmg1', effect: { pet_dmg: 0.30 } },
+            { id: 'pet_evo', name: 'Quick Evolution', desc: 'Pet evolves 50% faster', cost: 2, requires: 'pet_dmg1', effect: { evo_speed: 0.5 } },
+            { id: 'pet_ability', name: 'Unlock Pet Ability', desc: 'Pets use abilities more often', cost: 3, requires: 'pet_evo', effect: { pet_ability_chance: 0.15 } },
+            { id: 'pet_revive', name: 'Phoenix Bond', desc: 'Revive pet once per battle', cost: 4, requires: 'pet_dmg2', effect: { pet_revive: true } },
+        ]
+    }
+};
+
+// ==================== WORLD STATES ====================
+const WORLD_STATES = {
+    normal: { name: 'Normal', color: '#ffffff', modifiers: {} },
+    blood_moon: {
+        name: '🔴 BLOOD MOON',
+        color: '#cc0000',
+        cssClass: 'world-blood-moon',
+        modifiers: { enemy_hp_mult: 1.5, enemy_dmg_mult: 1.3, xp_mult: 2 },
+        desc: 'Enemies are stronger but give double XP!'
+    },
+    glitched: {
+        name: '👾 GLITCHED REALITY',
+        color: '#cc44ff',
+        cssClass: 'world-glitched',
+        modifiers: { random_stats: true, unstable_dmg: true },
+        desc: 'Reality is unstable. Damage is unpredictable!'
+    },
+    golden: {
+        name: '🌟 GOLDEN AGE',
+        color: '#ffd700',
+        cssClass: 'world-golden',
+        modifiers: { loot_mult: 2, gold_mult: 1.5 },
+        desc: 'Fortune smiles upon you. Double loot!'
+    }
+};
+
+/* ============================================================
+   SECTION 2: CORE ENGINE
+   ============================================================ */
+
+const CoreEngine = {
+    state: null,
+    
+    initialState: {
+        hp: 100, maxHp: 100,
+        gold: 0, xp: 0, level: 1, toNextLevel: 100,
+        stats: { str: 5, spd: 5, lck: 5, def: 0, mag: 0 },
+        inventory: [],
+        equippedItems: [],
+        pet: null,
+        location: 'forest',
+        flags: {},
+        turn: 0,
+        kills: 0,
+        quest: null,
+        achievements: [],
+        npcTalks: 0,
+        // New v3.0 fields
+        skillPoints: 0,
+        unlockedSkills: [],
+        playerClass: null,
+        worldState: 'normal',
+        worldStateTurns: 0,
+        portalVisits: 0,
+        craftingCount: 0,
+        ngPlusCycle: 0,
+        trueBossDefeated: false,
+    },
+
+    init() {
+        this.state = JSON.parse(JSON.stringify(this.initialState));
+        this.loadGame();
+    },
+
+    heal(amt) {
+        this.state.hp = Math.min(this.state.maxHp, this.state.hp + amt);
+        UISystem.renderUI();
+        AudioSystem.play('coin');
+    },
+
+    gainXp(amount) {
+        if (typeof amount !== 'number' || amount <= 0) return;
+        
+        // Ensure state values exist
+        if (typeof this.state.xp !== 'number') this.state.xp = 0;
+        if (typeof this.state.toNextLevel !== 'number') this.state.toNextLevel = 100;
+        
+        // Apply world state modifier
+        if (this.state.worldState === 'blood_moon') {
+            amount = Math.floor(amount * 2);
+        }
+        
+        // Apply class bonus
+        if (this.state.playerClass === 'glitch_mage') {
+            amount = Math.floor(amount * 1.1);
+        }
+
+        this.state.xp += amount;
+        UISystem.log(`✨ Gained ${amount} XP! (${this.state.xp}/${this.state.toNextLevel})`);
+        
+        // Handle multiple level ups
+        let levelUps = 0;
+        while (this.state.xp >= this.state.toNextLevel && levelUps < 10) {
+            this.state.xp -= this.state.toNextLevel;
+            this.levelUp();
+            levelUps++;
+        }
+        
+        UISystem.renderUI();
+        this.checkEndings();
+    },
+
+    levelUp() {
+        this.state.level = (this.state.level || 0) + 1;
+        this.state.toNextLevel = Math.floor((this.state.toNextLevel || 100) * 1.5);
+        this.state.maxHp = (this.state.maxHp || 100) + 20;
+        this.state.hp = this.state.maxHp;
+        
+        // Ensure stats object exists
+        if (!this.state.stats) this.state.stats = { str: 5, spd: 5, lck: 5, def: 0, mag: 0 };
+        
+        this.state.stats.str = (this.state.stats.str || 5) + 2;
+        this.state.stats.lck = (this.state.stats.lck || 5) + 1;
+        this.state.stats.spd = (this.state.stats.spd || 5) + 1;
+        this.state.skillPoints = (this.state.skillPoints || 0) + 1;
+        
+        AudioSystem.play('level');
+        UISystem.log(`<span class="level-text-anim">🆙 LEVEL UP! Now Level ${this.state.level}! +1 Skill Point!</span>`, 'level-text-anim');
+        
+        // Check for class unlock
+        if (this.state.level >= 5 && !this.state.playerClass) {
+            setTimeout(() => ClassEngine.showClassSelection(), 500);
+        }
+        
+        // Check for true boss unlock
+        this.checkTrueBossUnlock();
+    },
+
+    checkTrueBossUnlock() {
+        if (this.state.level >= 15 && 
+            this.state.pet && this.state.pet.stage >= 3 &&
+            this.state.portalVisits >= 3 &&
+            !LOCATIONS.void_throne.unlocked) {
+            LOCATIONS.void_throne.locked = false;
+            UISystem.log('<span class="boss-text">🌟 A NEW AREA HAS APPEARED: THE VOID THRONE!</span>', 'boss-text');
+            AudioSystem.play('rare_craft');
+        }
+    },
+
+    calculateStat(statName) {
+        let base = this.state.stats[statName] || 0;
+        
+        // Apply class bonuses
+        if (this.state.playerClass) {
+            const cls = CLASSES[this.state.playerClass];
+            if (cls.bonuses[statName + '_mult']) {
+                base = Math.floor(base * cls.bonuses[statName + '_mult']);
+            }
+            if (cls.bonuses['base_' + statName]) {
+                base += cls.bonuses['base_' + statName];
+            }
+        }
+        
+        // Apply NG+ bonus
+        if (this.state.ngPlusCycle > 0) {
+            base = Math.floor(base * (1 + this.state.ngPlusCycle * 0.1));
+        }
+        
+        return base;
+    },
+
+    getSkillEffect(effectName) {
+        let total = 0;
+        this.state.unlockedSkills.forEach(skillId => {
+            for (let tree of Object.values(SKILL_TREES)) {
+                const skill = tree.skills.find(s => s.id === skillId);
+                if (skill && skill.effect[effectName] !== undefined) {
+                    total += skill.effect[effectName];
+                }
+            }
+        });
+        return total;
+    },
+
+    hasSkill(skillId) {
+        return this.state.unlockedSkills.includes(skillId);
+    },
+
+    checkEndings() {
+        // Delegate to UISystem which has the actual ending logic
+        if (typeof UISystem !== 'undefined' && UISystem.checkEndings) {
+            UISystem.checkEndings();
+        }
+    },
+
+    autoSave() {
+        if (this.state.turn % 5 === 0) {
+            SaveController.saveGame();
+        }
+    },
+
+    loadGame() {
+        const saved = localStorage.getItem('chaosQuestSave_v3');
+        if (saved) {
+            try {
+                const loaded = JSON.parse(saved);
+                // Deep merge to handle nested objects properly
+                this.state = JSON.parse(JSON.stringify(this.initialState));
+                
+                // Merge top-level properties
+                Object.keys(loaded).forEach(key => {
+                    if (key === 'stats' && loaded.stats) {
+                        // Merge stats individually
+                        Object.keys(loaded.stats).forEach(statKey => {
+                            this.state.stats[statKey] = loaded.stats[statKey];
+                        });
+                    } else if (key === 'pet' && loaded.pet) {
+                        this.state.pet = loaded.pet;
+                    } else if (key === 'quest' && loaded.quest) {
+                        this.state.quest = loaded.quest;
+                    } else {
+                        this.state[key] = loaded[key];
+                    }
+                });
+                
+                // Ensure all required fields exist with defaults
+                this.state.hp = this.state.hp || 100;
+                this.state.maxHp = this.state.maxHp || 100;
+                this.state.gold = this.state.gold || 0;
+                this.state.xp = this.state.xp || 0;
+                this.state.level = this.state.level || 1;
+                this.state.toNextLevel = this.state.toNextLevel || 100;
+                this.state.turn = this.state.turn || 0;
+                this.state.kills = this.state.kills || 0;
+                this.state.inventory = Array.isArray(this.state.inventory) ? this.state.inventory : [];
+                this.state.flags = this.state.flags || {};
+                this.state.achievements = this.state.achievements || [];
+                this.state.stats = this.state.stats || { str: 5, spd: 5, lck: 5, def: 0, mag: 0 };
+                if (!this.state.stats.mag) this.state.stats.mag = 0;
+                if (!this.state.stats.def) this.state.stats.def = 0;
+                this.state.skillPoints = this.state.skillPoints || 0;
+                this.state.unlockedSkills = this.state.unlockedSkills || [];
+                this.state.playerClass = this.state.playerClass || null;
+                this.state.worldState = this.state.worldState || 'normal';
+                this.state.worldStateTurns = this.state.worldStateTurns || 0;
+                this.state.portalVisits = this.state.portalVisits || 0;
+                this.state.craftingCount = this.state.craftingCount || 0;
+                this.state.ngPlusCycle = this.state.ngPlusCycle || 0;
+                this.state.npcTalks = this.state.npcTalks || 0;
+                this.state.location = this.state.location || 'forest';
+                
+                UISystem.log(`📂 Game loaded. Welcome back to the chaos.`);
+            } catch(e) {
+                console.error('Failed to load save:', e);
+                localStorage.removeItem('chaosQuestSave_v3');
+            }
+        }
+    }
+};
+
+/* ============================================================
+   SECTION 3: COMBAT ENGINE
+   ============================================================ */
+
+const CombatEngine = {
+    currentEnemy: null,
+    combatTurn: 0,
+    shieldWallUsed: false,
+    petReviveUsed: false,
+    bossPhase: 1,
+
+    startCombat(enemyId) {
+        this.currentEnemy = JSON.parse(JSON.stringify(ENEMIES[enemyId]));
+        
+        // Apply world state modifiers
+        if (CoreEngine.state.worldState === 'blood_moon') {
+            this.currentEnemy.hp = Math.floor(this.currentEnemy.hp * 1.5);
+            this.currentEnemy.dmg = Math.floor(this.currentEnemy.dmg * 1.3);
+            this.currentEnemy.maxHp = this.currentEnemy.hp;
+        }
+        
+        // Apply NG+ scaling
+        if (CoreEngine.state.ngPlusCycle > 0) {
+            const scale = 1 + CoreEngine.state.ngPlusCycle * 0.25;
+            this.currentEnemy.hp = Math.floor(this.currentEnemy.hp * scale);
+            this.currentEnemy.maxHp = this.currentEnemy.hp;
+            this.currentEnemy.dmg = Math.floor(this.currentEnemy.dmg * scale);
+        }
+        
+        this.combatTurn = 0;
+        this.shieldWallUsed = false;
+        this.petReviveUsed = false;
+        this.bossPhase = 1;
+        
+        UISystem.clearLog();
+
+        if (this.currentEnemy.isBoss) {
+            AudioSystem.play('boss_enter');
+            UISystem.log(`<br><span class="boss-text">🚨🚨 BOSS ENCOUNTER! 🚨🚨</span>`, 'boss-text');
+            UISystem.log(`<span class="boss-text" style="font-size:2.5rem;display:block;animation:bossEntrance 0.5s">${this.currentEnemy.icon}</span>`, 'boss-text');
+            UISystem.log(`<b class="boss-text">${this.currentEnemy.name}</b> emerges!`, 'boss-text');
+            if (this.currentEnemy.flavor) {
+                UISystem.log(`<i style="color:#888;font-size:1.2rem">"${this.currentEnemy.flavor}"</i>`);
+            }
+            
+            if (this.currentEnemy.isTrueBoss) {
+                UISystem.log(`<span class="boss-text" style="font-size:1.3rem">⚠️ THIS IS THE TRUE FINAL BOSS - ${this.currentEnemy.phases} PHASES ⚠️</span>`);
+            }
+            
+            UISystem.log(`<span style="color:#ff5555">❤️ ${this.currentEnemy.hp} HP | ⚔️ ${this.currentEnemy.dmg} DMG</span>`);
+        } else {
+            AudioSystem.play('hit');
+            UISystem.log(`<br>⚠️ A wild <b>${this.currentEnemy.name}</b> ${this.currentEnemy.icon} appeared!`, 'combat-text');
+        }
+        
+        this.combatLoop();
+    },
+
+    combatLoop() {
+        UISystem.renderUI();
+        const actions = [
+            { text: '⚔️ ATTACK', action: () => this.playerAttack(), class: 'danger-btn' },
+            { text: '🛡️ DEFEND', action: () => this.playerDefend() },
+            { text: '🏃 FLEE',   action: () => this.flee() },
+        ];
+        
+        const hasBomb = CoreEngine.state.inventory.includes('bomb');
+        const hasPotion = CoreEngine.state.inventory.includes('potion') || CoreEngine.state.inventory.includes('elixir');
+        
+        if (hasBomb) actions.push({ text: '💣 BOMB!', action: () => this.useCombatItem('bomb'), class: 'special-btn' });
+        if (hasPotion) actions.push({ text: '🍷 HEAL', action: () => this.useCombatItem(CoreEngine.state.inventory.includes('elixir') ? 'elixir' : 'potion'), class: 'craft-btn' });
+        
+        UISystem.setActions(actions);
+    },
+
+    playerAttack() {
+        let dmg = CoreEngine.calculateStat('str') + Math.floor(Math.random() * 6) + 1;
+        
+        // Apply skill damage multiplier
+        dmg = Math.floor(dmg * (1 + CoreEngine.getSkillEffect('dmg_mult')));
+        
+        // Apply magic bonus
+        if (CoreEngine.state.stats.mag > 0 && Math.random() > 0.5) {
+            const magDmg = Math.floor(CoreEngine.calculateStat('mag') * 0.5);
+            dmg += magDmg;
+            UISystem.log(`🔮 Magical infusion: +${magDmg} magic damage!`);
+        }
+        
+        // Rage mode bonus
+        if (CoreEngine.hasSkill('rage_mode') && CoreEngine.state.hp < CoreEngine.state.maxHp * 0.3) {
+            dmg = Math.floor(dmg * 1.25);
+            UISystem.log(`🔥 RAGE MODE ACTIVE!`, 'skill-anim');
+        }
+        
+        // Chaos Knight special
+        if (CoreEngine.state.playerClass === 'chaos_knight' && CoreEngine.state.hp < CoreEngine.state.maxHp * 0.3) {
+            dmg = Math.floor(dmg * 1.5);
+            UISystem.log(`⚔️ CHAOS KNIGHT RAGE! +50% damage!`, 'skill-anim');
+        }
+        
+        // Critical hit check
+        let isCrit = false;
+        const baseCritChance = CoreEngine.state.stats.lck * 2;
+        const skillCritBonus = CoreEngine.getSkillEffect('crit_chance') * 100;
+        const totalCritChance = baseCritChance + skillCritBonus;
+        
+        if (CoreEngine.hasSkill('crit_strike') || CoreEngine.hasSkill('crit_unlock')) {
+            isCrit = Math.random() * 100 < totalCritChance;
+        }
+        
+        if (isCrit) {
+            let critMult = 2;
+            if (CoreEngine.hasSkill('crit_dmg')) {
+                critMult += CoreEngine.getSkillEffect('crit_dmg_mult');
+            }
+            dmg = Math.floor(dmg * critMult);
+            AudioSystem.play('win');
+            UISystem.log(`<span class="critical-text">💥 CRITICAL HIT x${critMult.toFixed(1)}! Dealt <b style="color:#ff0">${dmg}</b> dmg!</span>`, 'critical-text');
+        } else {
+            AudioSystem.play('hit');
+            UISystem.log(`⚔️ Attacked ${this.currentEnemy.name} for <b>${dmg}</b> dmg.`);
+        }
+
+        // Glitch Mage special
+        if (CoreEngine.state.playerClass === 'glitch_mage' && Math.random() < 0.15) {
+            dmg *= 2;
+            UISystem.log(`🌀 SPELL CHAOS! Damage DOUBLED!`, 'skill-anim');
+        }
+
+        // Dragon pet fire blast
+        if (CoreEngine.state.pet && CoreEngine.state.pet.type === 'dragon') {
+            const petDmgChance = 0.15 + (CoreEngine.hasSkill('pet_ability_chance') ? 0.15 : 0);
+            if (Math.random() < petDmgChance) {
+                const petDmg = 10 + CoreEngine.state.pet.stage * 5 + CoreEngine.state.stats.mag;
+                const petMult = 1 + CoreEngine.getSkillEffect('pet_dmg');
+                dmg += Math.floor(petDmg * petMult);
+                UISystem.log(`🔥 ${PETS['dragon'].stages[CoreEngine.state.pet.stage-1]} FIRE BLAST! +${petDmg} bonus!`, 'pet-anim');
+            }
+        }
+
+        // Glitched reality unstable damage
+        if (CoreEngine.state.worldState === 'glitched') {
+            const variance = Math.random() * 0.5 + 0.75; // 75% to 125%
+            dmg = Math.floor(dmg * variance);
+            if (variance > 1.1) {
+                UISystem.log(`⚡ REALITY SURGE! Bonus damage!`, 'event-text');
+            }
+        }
+
+        this.currentEnemy.hp -= dmg;
+        
+        if (this.currentEnemy.hp <= 0) {
+            this.checkBossPhaseTransition();
+            if (this.currentEnemy.hp <= 0) {
+                this.winCombat();
+                return;
+            }
+        }
+        
+        this.enemyTurn();
+    },
+
+    playerDefend() {
+        UISystem.log(`🛡️ You brace for impact like a majestic turtle...`);
+        this.enemyTurn(true);
+    },
+
+    useCombatItem(itemId) {
+        const item = ITEMS[itemId];
+        const idx = CoreEngine.state.inventory.indexOf(itemId);
+        if (idx === -1) return;
+        
+        CoreEngine.state.inventory.splice(idx, 1);
+        
+        if (itemId === 'bomb') {
+            const bdmg = 50 + Math.floor(CoreEngine.state.stats.mag * 1.5);
+            this.currentEnemy.hp -= bdmg;
+            AudioSystem.play('boss_attack');
+            UISystem.log(`💣 CHAOS BOMB! Dealt <b style="color:#f80">${bdmg}</b> explosive dmg!`);
+            if (this.currentEnemy.hp <= 0) {
+                this.winCombat();
+                return;
+            }
+            this.enemyTurn();
+        } else {
+            item.effect(CoreEngine.state);
+            UISystem.log(`🥤 Used ${item.name}.`);
+            UISystem.renderUI();
+            this.combatLoop();
+        }
+    },
+
+    useBombInCombat() {
+        this.useCombatItem('bomb');
+    },
+
+    enemyTurn(isDefending = false) {
+        this.combatTurn++;
+        
+        setTimeout(() => {
+            if (!this.currentEnemy) return;
+
+            // Boss special abilities
+            if (this.currentEnemy.isBoss && this.currentEnemy.abilities && this.combatTurn % 3 === 0) {
+                this.bossTriggerAbility();
+                return;
+            }
+
+            let dmg = Math.max(0, this.currentEnemy.dmg - CoreEngine.calculateStat('def') + Math.floor(Math.random() * 4));
+            
+            // Apply skill damage reduction
+            const dmgReduction = CoreEngine.getSkillEffect('dmg_reduction');
+            dmg = Math.floor(dmg * (1 - dmgReduction));
+            
+            // Apply world state
+            if (CoreEngine.state.worldState === 'glitched') {
+                dmg = Math.floor(dmg * (Math.random() * 0.6 + 0.7)); // 70% to 130%
+            }
+            
+            if (isDefending) dmg = Math.floor(dmg * 0.4);
+
+            // Shield Wall check
+            if (CoreEngine.hasSkill('shield_wall') && !this.shieldWallUsed && dmg > 0) {
+                this.shieldWallUsed = true;
+                UISystem.log(`🛡️ SHIELD WALL ACTIVATED! All damage blocked!`, 'skill-anim');
+                AudioSystem.play('win');
+                this.petCombatAssist();
+                this.combatLoop();
+                return;
+            }
+
+            CoreEngine.state.hp -= dmg;
+            AudioSystem.play('hit');
+            UISystem.log(`💢 ${this.currentEnemy.name} hits you for <b>${dmg}</b> dmg!`, 'combat-text');
+
+            // Thorns damage
+            const thornsPct = CoreEngine.getSkillEffect('thorns');
+            if (thornsPct > 0 && dmg > 0) {
+                const thornsDmg = Math.floor(dmg * thornsPct);
+                this.currentEnemy.hp -= thornsDmg;
+                UISystem.log(`🌿 THORNS! Reflected ${thornsDmg} damage!`, 'skill-anim');
+            }
+
+            this.petCombatAssist();
+
+            if (CoreEngine.state.hp <= 0) {
+                // Duck Apostle revive check
+                if (CoreEngine.state.playerClass === 'duck_apostle' && !this.duckApostleRevive) {
+                    this.duckApostleRevive = true;
+                    CoreEngine.state.hp = 1;
+                    UISystem.log(`🦆 DUCK BLESSING! You were saved from death!`, 'pet-anim');
+                    this.combatLoop();
+                    return;
+                }
+                this.gameOver();
+                return;
+            }
+            
+            this.combatLoop();
+        }, 700);
+    },
+
+    checkBossPhaseTransition() {
+        if (this.currentEnemy.isTrueBoss && this.currentEnemy.phases > this.bossPhase) {
+            const hpThreshold = this.currentEnemy.maxHp * (1 - this.bossPhase / this.currentEnemy.phases);
+            if (this.currentEnemy.hp <= hpThreshold) {
+                this.bossPhase++;
+                document.getElementById('game-container').classList.add('phase-transition');
+                setTimeout(() => {
+                    document.getElementById('game-container').classList.remove('phase-transition');
+                }, 1000);
+                
+                UISystem.log(`<span class="boss-text" style="font-size:2rem">⚠️ PHASE ${this.bossPhase} BEGIN! ⚠️</span>`, 'boss-text');
+                AudioSystem.play('boss_enter');
+                
+                // Phase effects
+                this.currentEnemy.dmg = Math.floor(this.currentEnemy.dmg * 1.5);
+                this.currentEnemy.abilities.push('reality_tear');
+                
+                // Heal boss slightly
+                this.currentEnemy.hp = Math.floor(this.currentEnemy.maxHp * (1 - (this.bossPhase - 1) / this.currentEnemy.phases));
+            }
+        }
+    },
+
+    bossTriggerAbility() {
+        const ability = this.currentEnemy.abilities[Math.floor(Math.random() * this.currentEnemy.abilities.length)];
+        AudioSystem.play('boss_attack');
+
+        switch(ability) {
+            case 'aoe': case 'eruption_aoe': case 'leaf_aoe': case 'tentacle_aoe': {
+                let dmg = Math.max(0, Math.floor(this.currentEnemy.dmg * 0.7) - CoreEngine.calculateStat('def'));
+                CoreEngine.state.hp -= dmg;
+                UISystem.log(`🌊 <b class="boss-text">${this.currentEnemy.name} uses AOE ATTACK!</b> You take ${dmg} dmg!`, 'boss-text');
+                break;
+            }
+            case 'heal': case 'bark_regen': {
+                const healAmt = Math.floor(this.currentEnemy.maxHp * 0.15);
+                this.currentEnemy.hp = Math.min(this.currentEnemy.maxHp, this.currentEnemy.hp + healAmt);
+                UISystem.log(`💚 <b class="boss-text">${this.currentEnemy.name} HEALS ${healAmt} HP!</b>`, 'boss-text');
+                break;
+            }
+            case 'quack_buff': case 'hoard_buff': case 'overcharge': {
+                this.currentEnemy.dmg = Math.floor(this.currentEnemy.dmg * 1.3);
+                UISystem.log(`💀 <b class="boss-text">${this.currentEnemy.name} POWERS UP!</b> DMG now ${this.currentEnemy.dmg}!`, 'boss-text');
+                break;
+            }
+            case 'void_quack': {
+                const dmg = Math.floor(this.currentEnemy.dmg * 1.5);
+                CoreEngine.state.hp -= dmg;
+                UISystem.log(`🦆 <b class="boss-text">VOID QUACK!</b> Reality shakes! ${dmg} TRUE damage!`, 'boss-text');
+                break;
+            }
+            case 'reality_tear': {
+                const dmg = Math.floor(this.currentEnemy.dmg * 1.2);
+                CoreEngine.state.hp -= dmg;
+                CoreEngine.state.stats.lck = Math.max(1, CoreEngine.state.stats.lck - 2);
+                UISystem.log(`🌌 <b class="boss-text">REALITY TEAR!</b> ${dmg} dmg! -2 LCK!`, 'boss-text');
+                break;
+            }
+            case 'duckception': {
+                const dmg = Math.floor(this.currentEnemy.dmg * 0.8);
+                CoreEngine.state.hp -= dmg;
+                UISystem.log(`🦆🦆🦆 <b class="boss-text">DUCKCEPTION!</b> Duplicates everywhere! ${dmg} dmg!`, 'boss-text');
+                break;
+            }
+            case 'phase_shift': {
+                this.currentEnemy.hp += 100;
+                UISystem.log(`🌀 <b class="boss-text">PHASE SHIFT!</b> Boss regenerates 100 HP!`, 'boss-text');
+                break;
+            }
+            default: {
+                const ddmg = Math.max(0, this.currentEnemy.dmg - CoreEngine.calculateStat('def'));
+                CoreEngine.state.hp -= ddmg;
+                UISystem.log(`😤 ${this.currentEnemy.name} attacks for ${ddmg} dmg.`, 'combat-text');
+            }
+        }
+
+        this.petCombatAssist();
+        if (CoreEngine.state.hp <= 0) {
+            this.gameOver();
+            return;
+        }
+        this.combatLoop();
+    },
+
+    petCombatAssist() {
+        if (!CoreEngine.state.pet) return;
+        const petData = PETS[CoreEngine.state.pet.type];
+        const roll = Math.random();
+        const abilityBonus = CoreEngine.hasSkill('pet_ability_chance') ? 0.15 : 0;
+        
+        switch(CoreEngine.state.pet.type) {
+            case 'wolf': case 'duck':
+                if (roll < 0.3 + abilityBonus) {
+                    const healAmt = 5 + CoreEngine.state.pet.stage * 3;
+                    CoreEngine.state.hp = Math.min(CoreEngine.state.maxHp, CoreEngine.state.hp + healAmt);
+                    UISystem.log(`💖 ${petData.stages[CoreEngine.state.pet.stage-1]} Healed you for ${healAmt}!`, 'pet-anim');
+                }
+                break;
+            case 'fairy':
+                if (roll < 0.25 + abilityBonus) {
+                    CoreEngine.heal(5);
+                    UISystem.log(`🧚 Navi heals 5 HP! HEY! LISTEN!`, 'pet-anim');
+                }
+                break;
+            case 'cat':
+                if (roll < 0.2 + abilityBonus && this.currentEnemy) {
+                    const stolen = Math.min(this.currentEnemy.gold, Math.floor(this.currentEnemy.gold * 0.3) + 1);
+                    this.currentEnemy.gold = Math.max(0, this.currentEnemy.gold - stolen);
+                    CoreEngine.state.gold += stolen;
+                    UISystem.log(`😼 Cat stole ${stolen} gold mid-combat!`, 'pet-anim');
+                }
+                break;
+        }
+        
+        if (CoreEngine.state.pet.type === 'duck' && CoreEngine.state.turn % 3 === 0 && roll < 0.4) {
+            const buffRoll = Math.random();
+            if (buffRoll < 0.33) { CoreEngine.state.stats.str += 2; UISystem.log(`🦆 QUACK! Duck buffs STR +2!`, 'pet-anim'); }
+            else if (buffRoll < 0.66) { CoreEngine.state.stats.lck += 2; UISystem.log(`🦆 QUACK! Duck buffs LCK +2!`, 'pet-anim'); }
+            else { CoreEngine.heal(15); UISystem.log(`🦆 QUACK! Duck heals 15 HP!`, 'pet-anim'); }
+        }
+    },
+
+    winCombat() {
+        try {
+            AudioSystem.play('win');
+            CoreEngine.state.kills++;
+            
+            let goldReward = this.currentEnemy ? (this.currentEnemy.gold || 0) : 0;
+            let xpReward = this.currentEnemy ? (this.currentEnemy.xp || 0) : 0;
+            
+            // Apply gold multiplier from skills/class
+            if (CoreEngine.hasSkill('jackpot')) goldReward *= 2;
+            if (CoreEngine.state.playerClass === 'void_hacker') goldReward = Math.floor(goldReward * 1.2);
+            
+            UISystem.log(`🏆 <b>VICTORY!</b> Gained <b style="color:#ff0">${xpReward}</b> XP and <b style="color:#ffd700">${goldReward}</b> Gold!`);
+            CoreEngine.state.gold += goldReward;
+            CoreEngine.gainXp(xpReward);
+
+            if (this.currentEnemy && this.currentEnemy.isBoss) {
+                UISystem.log(`<span class="boss-text">🎉 BOSS DEFEATED! The world trembles!</span>`);
+                AudioSystem.play('quest_complete');
+                
+                if (CoreEngine.state.quest && CoreEngine.state.quest.id === 'kill_boss') {
+                    QuestEngine.updateProgress('killboss');
+                }
+                
+                if (this.currentEnemy.isTrueBoss) {
+                    CoreEngine.state.trueBossDefeated = true;
+                    if (CoreEngine.state.quest && CoreEngine.state.quest.id === 'true_boss') {
+                        QuestEngine.updateProgress('trueboss');
+                    }
+                }
+            }
+
+            // Drop loot
+            if (this.currentEnemy) {
+                const dropChance = this.currentEnemy.isBoss ? 1 : (0.6 + CoreEngine.getSkillEffect('rare_drop'));
+                if (this.currentEnemy.drop && Math.random() < dropChance) {
+                    const drop = this.currentEnemy.drop;
+                    CoreEngine.state.inventory.push(drop);
+                    AudioSystem.play('coin');
+                    UISystem.log(`🎁 Loot: ${ITEMS[drop] ? ITEMS[drop].icon + ' ' + ITEMS[drop].name : drop}`);
+                }
+                
+                // Bonus random mat
+                const loc = LOCATIONS[CoreEngine.state.location];
+                const bonusDropChance = CoreEngine.state.worldState === 'golden' ? 0.9 : 0.6;
+                if (Math.random() > bonusDropChance && loc && loc.loot && loc.loot.length) {
+                    const bonusDrop = loc.loot[Math.floor(Math.random() * loc.loot.length)];
+                    CoreEngine.state.inventory.push(bonusDrop);
+                    UISystem.log(`🌟 Bonus loot: ${ITEMS[bonusDrop] ? ITEMS[bonusDrop].icon : ''} ${bonusDrop}`);
+                }
+            }
+
+            // Pet bond
+            if (CoreEngine.state.pet && this.currentEnemy) {
+                let bondGain = this.currentEnemy.isBoss ? 20 : 5;
+                if (CoreEngine.hasSkill('evo_speed')) bondGain = Math.floor(bondGain * 1.5);
+                if (CoreEngine.state.playerClass === 'duck_apostle') bondGain = Math.floor(bondGain * 1.5);
+                CoreEngine.state.pet.bond = Math.min(100, CoreEngine.state.pet.bond + bondGain);
+                PetEngine.checkEvolution();
+            }
+
+            if (CoreEngine.state.quest && CoreEngine.state.quest.id === 'kill_5') {
+                QuestEngine.updateProgress('kill');
+            }
+
+        } catch(e) {
+            console.error('Error in winCombat:', e);
+        } finally {
+            // Always clear enemy and return to exploration
+            this.currentEnemy = null;
+            CoreEngine.autoSave();
+            try {
+                CoreEngine.checkEndings();
+            } catch(e) {
+                console.error('Error in checkEndings:', e);
+            }
+            UISystem.renderUI();
+            try {
+                WorldEventEngine.maybeTriggerWorldState();
+            } catch(e) {
+                console.error('Error in world event:', e);
+            }
+            UISystem.showExploration();
+        }
+    },
+
+    flee() {
+        const fleeChance = 0.4 + (CoreEngine.calculateStat('spd') * 0.04);
+        if (Math.random() < fleeChance) {
+            UISystem.log(`🏃 You speed-ran away from ${this.currentEnemy.name}. No shame.`);
+            this.currentEnemy = null;
+            UISystem.showExploration();
+        } else {
+            UISystem.log(`🚫 Couldn't escape! (SPD: ${CoreEngine.calculateStat('spd')})`);
+            this.enemyTurn();
+        }
+    },
+
+    gameOver() {
+        CoreEngine.state.flags.ended = true;
+        AudioSystem.play('death');
+        setTimeout(() => {
+            document.getElementById('modal-overlay').style.display = 'flex';
+            document.getElementById('ending-title').innerText = '💀 YOU DIED';
+            document.getElementById('ending-desc').innerText = 'Skill issue. The slime is writing a memoir about you.';
+            document.getElementById('ngplus-btn').style.display = 'none';
+        }, 500);
+    }
+};
+
+/* ============================================================
+   SECTION 4: PET ENGINE
+   ============================================================ */
+
+const PetEngine = {
+    checkEvolution() {
+        if (!CoreEngine.state.pet) return;
+        const petData = PETS[CoreEngine.state.pet.type];
+        const evoThresholds = [50, 100];
+        
+        evoThresholds.forEach((thresh, idx) => {
+            if (CoreEngine.state.pet.bond >= thresh && CoreEngine.state.pet.stage === idx + 1) {
+                CoreEngine.state.pet.stage++;
+                AudioSystem.play('pet_evo');
+                const newIcon = petData.stages[CoreEngine.state.pet.stage - 1];
+                UISystem.log(`🌟✨ PET EVOLVED to Stage ${CoreEngine.state.pet.stage}! ${newIcon} ${petData.name}!`, 'pet-anim');
+                
+                // Stat bonus on evolution
+                const bonusStat = petData.bonus === 'all' ? 'str' : petData.bonus;
+                CoreEngine.state.stats[bonusStat] += 3;
+                if (petData.bonus === 'all') {
+                    CoreEngine.state.stats.lck += 3;
+                    CoreEngine.state.stats.spd += 2;
+                }
+                
+                CoreEngine.checkTrueBossUnlock();
+                UISystem.renderUI();
+            }
+        });
+    }
+};
+
+/* ============================================================
+   SECTION 5: QUEST ENGINE
+   ============================================================ */
+
+const QuestEngine = {
+    showQuests() {
+        const btns = [];
+        if (CoreEngine.state.quest) {
+            const q = QUESTS[CoreEngine.state.quest.id];
+            UISystem.log(`📜 Active Quest: <b>${q.name}</b> — ${q.desc}: ${CoreEngine.state.quest.progress}/${CoreEngine.state.quest.goal}`);
+            btns.push({ text: '🔙 BACK', action: () => UISystem.showExploration() });
+        } else {
+            UISystem.log(`📜 Choose a quest:`, 'quest-text');
+            Object.keys(QUESTS).forEach(qid => {
+                const q = QUESTS[qid];
+                // Check if quest is unlocked
+                let unlocked = true;
+                if (qid === 'true_boss') {
+                    unlocked = CoreEngine.state.level >= 15 && CoreEngine.state.pet && CoreEngine.state.pet.stage >= 3;
+                }
+                
+                btns.push({
+                    text: q.name + (unlocked ? '' : ' 🔒'),
+                    action: unlocked ? () => {
+                        CoreEngine.state.quest = { id: qid, progress: 0, goal: q.goal };
+                        UISystem.log(`📜 Quest accepted: <b>${q.name}</b>! ${q.desc}`, 'quest-text');
+                        UISystem.showExploration();
+                    } : () => UISystem.log(`🔒 This quest requires Level 15 and a max-stage pet!`),
+                    class: 'quest-btn'
+                });
+            });
+            btns.push({ text: '🔙 BACK', action: () => UISystem.showExploration() });
+        }
+        UISystem.setActions(btns);
+    },
+
+    updateProgress(type, itemId) {
+        if (!CoreEngine.state.quest) return;
+        const q = QUESTS[CoreEngine.state.quest.id];
+        let valid = false;
+        if (type === 'collect' && q.type === 'collect' && itemId === q.item) valid = true;
+        if (type === 'kill' && q.type === 'kill') valid = true;
+        if (type === 'killboss' && q.type === 'killboss') valid = true;
+        if (type === 'trueboss' && q.type === 'trueboss') valid = true;
+        if (type === 'explore' && q.type === 'explore') valid = true;
+        if (type === 'craft' && q.type === 'craft') valid = true;
+        if (!valid) return;
+        
+        CoreEngine.state.quest.progress++;
+        if (CoreEngine.state.quest.progress >= CoreEngine.state.quest.goal) {
+            this.completeQuest();
+        }
+    },
+
+    completeQuest() {
+        if (!CoreEngine.state.quest) return;
+        const q = QUESTS[CoreEngine.state.quest.id];
+        AudioSystem.play('quest_complete');
+        UISystem.log(`<span class="boss-text">📜✅ QUEST COMPLETE! ${q.name}!</span>`);
+        CoreEngine.state.gold += q.reward.gold || 0;
+        CoreEngine.gainXp(q.reward.xp || 0);
+        if (q.reward.item) {
+            CoreEngine.state.inventory.push(q.reward.item);
+            UISystem.log(`🎁 Reward: ${ITEMS[q.reward.item]?.icon} ${ITEMS[q.reward.item]?.name || q.reward.item}!`);
+        }
+        CoreEngine.state.quest = null;
+        UISystem.renderUI();
+        CoreEngine.checkEndings();
+    }
+};
+
+/* ============================================================
+   SECTION 6: CRAFT ENGINE
+   ============================================================ */
+
+const CraftEngine = {
+    craft(recipe) {
+        const missing = recipe.req.filter(r => !CoreEngine.state.inventory.includes(r));
+        if (missing.length) {
+            UISystem.log(`❌ Missing: ${missing.map(r=>ITEMS[r]?.name||r).join(', ')}`);
+            return;
+        }
+        
+        for (let req of recipe.req) {
+            const idx = CoreEngine.state.inventory.indexOf(req);
+            CoreEngine.state.inventory.splice(idx, 1);
+        }
+        CoreEngine.state.inventory.push(recipe.res);
+
+        const item = ITEMS[recipe.res];
+        const isLegendary = recipe.name && recipe.name.includes('LEGENDARY');
+        const isTrue = recipe.name && recipe.name.includes('TRUE');
+        const isCombo = recipe.name && recipe.name.includes('COMBO');
+        
+        if (isTrue) {
+            AudioSystem.play('rare_craft');
+            UISystem.log(`⭐🌟 <b class="boss-text">TRUE ITEM CRAFTED!</b> ${item.icon} <b>${item.name}</b>!`, 'boss-text');
+        } else if (isLegendary) {
+            AudioSystem.play('rare_craft');
+            UISystem.log(`🌈✨ <b class="boss-text">LEGENDARY ITEM CRAFTED!</b> ${item.icon} <b>${item.name}</b>!`, 'craft-anim');
+        } else if (isCombo) {
+            AudioSystem.play('rare_craft');
+            UISystem.log(`💫 COMBO CRAFT! ${item.icon} <b>${item.name}</b> created!`, 'craft-anim');
+        } else {
+            AudioSystem.play('craft');
+            UISystem.log(`⚒️ Crafted ${item.icon} <b>${item.name}</b>!`, 'craft-anim');
+        }
+
+        // Auto-apply stats
+        if (item.stat) { CoreEngine.state.stats[item.stat] += item.val; UISystem.log(`📈 +${item.val} ${item.stat.toUpperCase()}!`); }
+        if (item.stat2) { CoreEngine.state.stats[item.stat2] += item.val2; UISystem.log(`📈 ${item.val2 > 0 ? '+' : ''}${item.val2} ${item.stat2.toUpperCase()}!`); }
+
+        CoreEngine.state.craftingCount++;
+        if (CoreEngine.state.quest && CoreEngine.state.quest.id === 'craft_5') {
+            QuestEngine.updateProgress('craft');
+        }
+
+        CoreEngine.autoSave();
+        CoreEngine.checkEndings();
+        UISystem.renderUI();
+    }
+};
+
+/* ============================================================
+   SECTION 7: WORLD EVENT ENGINE
+   ============================================================ */
+
+const WorldEventEngine = {
+    randomEvent() {
+        const events = [
+            () => {
+                if (!CoreEngine.state.pet) {
+                    const petTypes = ['wolf','fairy','duck','cat','dragon'];
+                    const newPet = petTypes[Math.floor(Math.random() * petTypes.length)];
+                    CoreEngine.state.pet = { type: newPet, bond: 0, stage: 1 };
+                    AudioSystem.play('pet_evo');
+                    UISystem.log(`🐾 A ${PETS[newPet].icon} started following you! You have a ${PETS[newPet].name} now!`, 'pet-anim');
+                    CoreEngine.checkTrueBossUnlock();
+                } else {
+                    CoreEngine.state.gold += 50;
+                    UISystem.log(`💰 Found a lost gold sack! +50 Gold.`);
+                    AudioSystem.play('coin');
+                }
+            },
+            () => { UISystem.log(`🧙‍♂️ A wizard turned your shoes into rockets. +2 SPD!`); CoreEngine.state.stats.spd += 2; },
+            () => { UISystem.log(`🚽 Magical toilet. Unspeakable things happened. +150 XP.`); CoreEngine.gainXp(150); },
+            () => { UISystem.log(`🐸 The Frog Band drops a new album. Your soul restored.`); CoreEngine.heal(40); },
+            () => {
+                UISystem.showMultiEvent({
+                    title: '🌟 SHOOTING STAR!',
+                    desc: 'A star crashes nearby. What do you do?',
+                    choices: [
+                        { text: '⛏️ Mine it!',     action: ()=>{ CoreEngine.state.inventory.push('crystal'); UISystem.log('💎 Got Mana Crystal from the star!'); } },
+                        { text: '🙏 Wish on it!',  action: ()=>{ CoreEngine.gainXp(300); UISystem.log('✨ Your wish granted you 300 XP!'); } },
+                        { text: '🏃 Run away.',    action: ()=>{ UISystem.log('💨 You ran. Wise.'); } },
+                    ]
+                });
+                return;
+            },
+            () => {
+                UISystem.showMultiEvent({
+                    title: '🪄 MYSTERIOUS WITCH',
+                    desc: 'A witch offers you a deal:',
+                    choices: [
+                        { text: '⚗️ Take Potion',  action: ()=>{ CoreEngine.state.inventory.push('potion'); UISystem.log('🍷 Got a potion!'); } },
+                        { text: '💀 Risk Curse!',  action: ()=>{ if(Math.random()>0.5){ CoreEngine.state.stats.str+=5; UISystem.log('🔥 BLESSED! +5 STR!'); } else { CoreEngine.state.hp=Math.max(1,CoreEngine.state.hp-30); UISystem.log('💀 CURSED! -30 HP.'); } } },
+                        { text: '🏃 Run.',         action: ()=>{ UISystem.log('Wise choice.'); } },
+                    ]
+                });
+                return;
+            },
+            () => { UISystem.log(`💎 You kicked a rock and found a gem! Got Raw Gemstone!`); CoreEngine.state.inventory.push('gem_raw'); AudioSystem.play('coin'); },
+            () => { UISystem.log(`⚡ You got hit by lightning. +3 MAG, -10 HP.`); CoreEngine.state.stats.mag += 3; CoreEngine.state.hp = Math.max(1, CoreEngine.state.hp - 10); },
+            () => { UISystem.log(`🍕 A pizza appeared from nowhere. Healed 20 HP.`); CoreEngine.heal(20); },
+            () => {
+                UISystem.showMultiEvent({
+                    title: '👴 LOST HERMIT',
+                    desc: 'A hermit offers ancient knowledge:',
+                    choices: [
+                        { text: '📚 Learn Combat', action: ()=>{ CoreEngine.state.stats.str+=3; CoreEngine.state.stats.def+=2; UISystem.log('💪 Learned ancient combat! +3 STR +2 DEF!'); } },
+                        { text: '🔮 Learn Magic',  action: ()=>{ CoreEngine.state.stats.mag+=5; UISystem.log('🔮 Absorbed arcane wisdom! +5 MAG!'); } },
+                        { text: '👋 Ignore him.', action: ()=>{ UISystem.log('He just disappears. Sad.'); } },
+                    ]
+                });
+                return;
+            },
+        ];
+        
+        const ev = events[Math.floor(Math.random() * events.length)];
+        ev();
+    },
+
+    easterEggEvent() {
+        const eggs = [
+            () => {
+                CoreEngine.state.inventory.push('cosmic_egg');
+                UISystem.log(`🥚 ??? A COSMIC EGG fell from the sky!`, 'boss-text');
+                AudioSystem.play('rare_craft');
+            },
+            () => {
+                UISystem.log(`🦆 THE DUCK WHISPERS: "THE PROPHECY IS REAL. BUY BREAD."`, 'boss-text');
+                CoreEngine.state.stats.lck += 5;
+            },
+            () => {
+                CoreEngine.state.inventory.push('glitch_token');
+                UISystem.log(`👾 REALITY BRIEFLY BROKE. A Glitch Token materialized!`, 'boss-text');
+                AudioSystem.play('boss_enter');
+            },
+            () => {
+                const petTypes = ['cat','dragon'];
+                const newPet = petTypes[Math.floor(Math.random()*petTypes.length)];
+                CoreEngine.state.pet = { type: newPet, bond: 50, stage: 1 };
+                UISystem.log(`🌈 A RARE PET APPEARED! ${PETS[newPet].icon} ${PETS[newPet].name}!`, 'pet-anim');
+                AudioSystem.play('pet_evo');
+            },
+        ];
+        eggs[Math.floor(Math.random() * eggs.length)]();
+        UISystem.renderUI();
+    },
+
+    maybeTriggerWorldState() {
+        // 5% chance to trigger a world state change
+        if (Math.random() < 0.05 && CoreEngine.state.worldState === 'normal') {
+            const states = ['blood_moon', 'glitched', 'golden'];
+            const newState = states[Math.floor(Math.random() * states.length)];
+            CoreEngine.state.worldState = newState;
+            CoreEngine.state.worldStateTurns = 10 + Math.floor(Math.random() * 10);
+            
+            const ws = WORLD_STATES[newState];
+            UISystem.log(`<span class="boss-text">🌍 WORLD EVENT: ${ws.name}!</span>`, 'boss-text');
+            UISystem.log(`<i style="color:#aaa">${ws.desc}</i>`);
+            AudioSystem.play('event');
+            
+            this.updateWorldStateUI();
+        }
+    },
+
+    tickWorldState() {
+        if (CoreEngine.state.worldState !== 'normal') {
+            CoreEngine.state.worldStateTurns--;
+            if (CoreEngine.state.worldStateTurns <= 0) {
+                UISystem.log(`🌍 World state returned to normal.`);
+                CoreEngine.state.worldState = 'normal';
+            }
+            this.updateWorldStateUI();
+        }
+    },
+
+    updateWorldStateUI() {
+        const indicator = document.getElementById('world-state-indicator');
+        const ws = WORLD_STATES[CoreEngine.state.worldState];
+        
+        if (CoreEngine.state.worldState !== 'normal') {
+            indicator.style.display = 'block';
+            indicator.className = ws.cssClass;
+            indicator.innerHTML = `${ws.name} (${CoreEngine.state.worldStateTurns} turns)`;
+        } else {
+            indicator.style.display = 'none';
+        }
+    }
+};
+
+/* ============================================================
+   SECTION 8: SKILL TREE ENGINE
+   ============================================================ */
+
+const SkillTreeEngine = {
+    unlockSkill(skillId) {
+        if (CoreEngine.state.unlockedSkills.includes(skillId)) return false;
+        
+        // Find skill and check requirements
+        for (let tree of Object.values(SKILL_TREES)) {
+            const skill = tree.skills.find(s => s.id === skillId);
+            if (skill) {
+                if (skill.requires && !CoreEngine.state.unlockedSkills.includes(skill.requires)) {
+                    UISystem.log(`❌ Requires ${skill.requires} first!`);
+                    return false;
+                }
+                if (CoreEngine.state.skillPoints < skill.cost) {
+                    UISystem.log(`❌ Not enough skill points!`);
+                    return false;
+                }
+                
+                CoreEngine.state.skillPoints -= skill.cost;
+                CoreEngine.state.unlockedSkills.push(skillId);
+                AudioSystem.play('craft');
+                UISystem.log(`✅ Unlocked: ${skill.name}!`, 'skill-anim');
+                UISystem.renderSkillTree();
+                UISystem.renderUI();
+                return true;
+            }
+        }
+        return false;
+    }
+};
+
+/* ============================================================
+   SECTION 9: CLASS ENGINE
+   ============================================================ */
+
+const ClassEngine = {
+    showClassSelection() {
+        document.getElementById('class-modal').style.display = 'flex';
+        const choicesDiv = document.getElementById('class-choices');
+        choicesDiv.innerHTML = '';
+        
+        Object.entries(CLASSES).forEach(([classId, cls]) => {
+            const card = document.createElement('div');
+            card.className = 'class-card';
+            card.innerHTML = `
+                <div class="class-icon">${cls.icon}</div>
+                <h4 style="color:${cls.color}">${cls.name}</h4>
+                <p>${cls.desc}</p>
+                <p style="color:var(--neon-gold);font-size:1rem"><i>${cls.special}</i></p>
+            `;
+            card.onclick = () => this.selectClass(classId);
+            choicesDiv.appendChild(card);
+        });
+    },
+
+    selectClass(classId) {
+        const cls = CLASSES[classId];
+        CoreEngine.state.playerClass = classId;
+        
+        // Apply base stat bonuses
+        Object.entries(cls.bonuses).forEach(([key, val]) => {
+            if (key.startsWith('base_')) {
+                const stat = key.replace('base_', '');
+                CoreEngine.state.stats[stat] = (CoreEngine.state.stats[stat] || 0) + val;
+            }
+        });
+        
+        document.getElementById('class-modal').style.display = 'none';
+        AudioSystem.play('level');
+        UISystem.log(`<span class="level-text-anim">⚔️ You are now a ${cls.icon} ${cls.name}!</span>`, 'level-text-anim');
+        
+        UISystem.renderUI();
+        SaveController.saveGame();
+    }
+};
+
+/* ============================================================
+   SECTION 10: UI SYSTEM
+   ============================================================ */
+
+const UISystem = {
+    invFilter: 'all',
+
+    renderUI() {
+        // Ensure state exists
+        if (!CoreEngine.state) return;
+        
+        const state = CoreEngine.state;
+        
+        // HP bar
+        const hpPercent = Math.max(0, Math.min(100, (state.hp || 0) / (state.maxHp || 100) * 100));
+        document.getElementById('hp-bar').style.width = hpPercent + '%';
+        document.getElementById('hp-text').innerText = `${Math.ceil(Math.max(0, state.hp || 0))}/${state.maxHp || 100}`;
+        
+        // XP bar
+        const xpPercent = Math.max(0, Math.min(100, (state.xp || 0) / (state.toNextLevel || 100) * 100));
+        document.getElementById('xp-bar').style.width = xpPercent + '%';
+        document.getElementById('level-text').innerText = state.level || 1;
+        document.getElementById('gold-text').innerText = state.gold || 0;
+        
+        // Stats
+        document.getElementById('str-val').innerText = CoreEngine.calculateStat('str');
+        document.getElementById('spd-val').innerText = CoreEngine.calculateStat('spd');
+        document.getElementById('lck-val').innerText = CoreEngine.calculateStat('lck');
+        document.getElementById('def-val').innerText = CoreEngine.calculateStat('def');
+        document.getElementById('mag-val').innerText = CoreEngine.calculateStat('mag');
+        document.getElementById('sp-text').innerText = state.skillPoints || 0;
+
+        // Class badge
+        if (CoreEngine.state.playerClass) {
+            const cls = CLASSES[CoreEngine.state.playerClass];
+            const badge = document.getElementById('class-badge');
+            badge.style.display = 'inline-block';
+            badge.style.color = cls.color;
+            badge.style.borderColor = cls.color;
+            badge.innerHTML = `${cls.icon} ${cls.name}`;
+        }
+
+        // NG+ badge
+        if (CoreEngine.state.ngPlusCycle > 0) {
+            document.getElementById('ng-plus-badge').style.display = 'block';
+            document.getElementById('ng-cycle').innerText = CoreEngine.state.ngPlusCycle;
+        }
+
+        // Quest bar
+        if (CoreEngine.state.quest) {
+            const q = QUESTS[CoreEngine.state.quest.id];
+            const pct = Math.min(100, CoreEngine.state.quest.progress / CoreEngine.state.quest.goal * 100);
+            document.getElementById('quest-bar').style.width = pct + '%';
+            document.getElementById('quest-name').innerText = q.name;
+            document.getElementById('quest-progress').innerText = `${q.desc}: ${CoreEngine.state.quest.progress}/${CoreEngine.state.quest.goal}`;
+        } else {
+            document.getElementById('quest-bar').style.width = '0%';
+            document.getElementById('quest-name').innerText = 'None Active';
+            document.getElementById('quest-progress').innerText = '';
+        }
+
+        this.renderInventory();
+        this.renderCrafting();
+        this.renderPet();
+        WorldEventEngine.updateWorldStateUI();
+    },
+
+    renderInventory() {
+        const invGrid = document.getElementById('inventory-grid');
+        invGrid.innerHTML = '';
+        CoreEngine.state.inventory.forEach((itemId, index) => {
+            const item = ITEMS[itemId];
+            if (!item) return;
+            if (this.invFilter !== 'all' && item.type !== this.invFilter) return;
+            
+            const div = document.createElement('div');
+            div.className = 'item-slot';
+            if (item.type === 'special') div.classList.add('special-item');
+            if (item.type === 'wep' || item.type === 'arm') div.classList.add('weapon-item');
+            if (item.type === 'con') div.classList.add('consumable-item');
+            div.innerText = item.icon;
+            let tooltip = item.name + ': ' + item.desc;
+            if (item.stat) tooltip += ` | +${item.val} ${item.stat.toUpperCase()}`;
+            if (item.stat2) tooltip += ` | +${item.val2} ${item.stat2.toUpperCase()}`;
+            div.setAttribute('data-tooltip', tooltip);
+            div.onclick = () => this.useItem(index);
+            invGrid.appendChild(div);
+        });
+    },
+
+    renderCrafting() {
+        const craftList = document.getElementById('crafting-list');
+        craftList.innerHTML = '';
+        RECIPES.forEach(recipe => {
+            const btn = document.createElement('button');
+            const resItem = ITEMS[recipe.res];
+            const isLegendary = recipe.name && recipe.name.includes('LEGENDARY');
+            const isTrue = recipe.name && recipe.name.includes('TRUE');
+            const isCombo = recipe.name && recipe.name.includes('COMBO');
+            
+            btn.className = isLegendary || isTrue ? 'craft-btn boss-btn' : isCombo ? 'craft-btn special-btn' : 'craft-btn';
+            const reqIcons = recipe.req.map(r => ITEMS[r] ? ITEMS[r].icon : '?').join('');
+            btn.innerHTML = `${resItem.icon} ${recipe.name || resItem.name}<br><small style="font-size:0.8rem">${reqIcons}</small>`;
+            btn.style.width = '100%';
+            btn.style.marginBottom = '4px';
+            btn.onclick = () => CraftEngine.craft(recipe);
+            const canCraft = recipe.req.every(req => CoreEngine.state.inventory.includes(req));
+            if (!canCraft) btn.disabled = true;
+            craftList.appendChild(btn);
+        });
+    },
+
+    renderPet() {
+        const petUI = document.getElementById('pet-display');
+        const noPet = document.getElementById('no-pet-msg');
+        if (CoreEngine.state.pet) {
+            petUI.classList.remove('hidden');
+            noPet.classList.add('hidden');
+            const petData = PETS[CoreEngine.state.pet.type];
+            const stageIcon = petData.stages[Math.min(CoreEngine.state.pet.stage - 1, petData.stages.length - 1)];
+            document.getElementById('pet-avatar').innerText = stageIcon;
+            document.getElementById('pet-name').innerText = `${petData.name} ★${CoreEngine.state.pet.stage}`;
+            document.getElementById('pet-stage-label').innerText = CoreEngine.state.pet.stage >= 3 ? '🌟 MAX STAGE' : `Stage ${CoreEngine.state.pet.stage}`;
+            document.getElementById('bond-bar').style.width = CoreEngine.state.pet.bond + '%';
+            document.getElementById('pet-ability').innerText = petData.abilityDesc;
+        } else {
+            petUI.classList.add('hidden');
+            noPet.classList.remove('hidden');
+        }
+    },
+
+    log(msg, type='') {
+        const display = document.getElementById('main-display');
+        const div = document.createElement('div');
+        div.className = 'log-entry ' + type;
+        div.innerHTML = msg;
+        display.appendChild(div);
+        display.scrollTop = display.scrollHeight;
+        while (display.children.length > 80) display.removeChild(display.firstChild);
+    },
+
+    clearLog() {
+        document.getElementById('main-display').innerHTML = '';
+    },
+
+    setActions(buttons) {
+        const area = document.getElementById('action-area');
+        area.innerHTML = '';
+        buttons.forEach(b => {
+            const btn = document.createElement('button');
+            btn.innerHTML = b.text;
+            if (b.class) btn.className = b.class;
+            btn.onclick = () => { AudioSystem.init(); b.action(); };
+            if (b.disabled) btn.disabled = true;
+            area.appendChild(btn);
+        });
+    },
+
+    setFilter(f) {
+        this.invFilter = f;
+        ['all','mat','con','wep','special'].forEach(id => {
+            const el = document.getElementById('filter-' + id);
+            if (el) el.classList.toggle('filter-active', id === f);
+        });
+        this.renderInventory();
+    },
+
+    showExploration() {
+        const loc = LOCATIONS[CoreEngine.state.location];
+        if (!loc) {
+            CoreEngine.state.location = 'forest';
+            this.log(`⚠️ Location error, returning to forest.`);
+        }
+        
+        const currentLoc = LOCATIONS[CoreEngine.state.location];
+        const bgColor = currentLoc ? currentLoc.color : '#2ecc71';
+        document.getElementById('game-container').style.borderColor = bgColor;
+        document.getElementById('game-container').style.boxShadow = `0 0 30px ${bgColor}`;
+
+        this.log(`<span class="location-badge" style="color:${bgColor};border-color:${bgColor}">📍 ${currentLoc ? currentLoc.name : 'Unknown'}</span>`);
+
+        const actions = [
+            { text: '🔍 EXPLORE', action: () => this.explore() },
+            { text: '🗺️ TRAVEL',  action: () => this.showTravel() },
+            { text: '💤 REST',    action: () => this.rest() },
+            { text: '📜 QUESTS',  action: () => QuestEngine.showQuests() },
+            { text: '🗣️ NPC',     action: () => this.talkNPC() },
+        ];
+        
+        // Check if there's an active combat
+        if (CombatEngine.currentEnemy) {
+            actions.push({ text: '⚔️ FIGHT!', action: () => CombatEngine.combatLoop() });
+        } else if (currentLoc && currentLoc.boss) {
+            actions.push({ text: '⚔️ BOSS HUNT', action: () => this.triggerBossHunt(), class: 'boss-btn' });
+        }
+        
+        actions.push({ text: '🌳 SKILLS', action: () => this.showSkillTree(), class: 'skill-btn' });
+        
+        this.setActions(actions);
+        this.renderUI();
+    },
+
+    triggerBossHunt() {
+        const loc = LOCATIONS[CoreEngine.state.location];
+        if (!loc.boss) { this.log(`No boss here... yet.`); return; }
+        this.log(`⚠️ You venture deep to find the BOSS of ${loc.name}...`);
+        CombatEngine.startCombat(loc.boss);
+    },
+
+    showTravel() {
+        const btns = Object.keys(LOCATIONS).map(key => {
+            const loc = LOCATIONS[key];
+            const unlockLevel = key === 'lava' ? 5 : key === 'crystal_mine' ? 8 : key === 'cloud' ? 12 : key === 'void_throne' ? 15 : 1;
+            const isUnlocked = CoreEngine.state.level >= unlockLevel && !loc.locked;
+            const isVoidThrone = key === 'void_throne';
+            const canAccess = isUnlocked || (isVoidThrone && CoreEngine.state.level >= 15 && CoreEngine.state.pet && CoreEngine.state.pet.stage >= 3 && CoreEngine.state.portalVisits >= 3);
+            
+            return {
+                text: loc.name + (canAccess ? '' : ' 🔒'),
+                action: canAccess ? () => {
+                    CoreEngine.state.location = key;
+                    loc.explored++;
+                    if (key === 'portal') CoreEngine.state.portalVisits++;
+                    if (CoreEngine.state.quest && CoreEngine.state.quest.id === 'visit_all') QuestEngine.updateProgress('explore');
+                    this.log(`🚀 Traveled to ${loc.name}`);
+                    this.showExploration();
+                } : () => {
+                    if (isVoidThrone) {
+                        this.log(`🔒 Requires: Level 15, Max-stage pet, and 3 Portal visits!`);
+                    } else {
+                        this.log(`🔒 Requires Level ${unlockLevel}!`);
+                    }
+                },
+                class: isVoidThrone && canAccess ? 'boss-btn' : ''
+            };
+        });
+        btns.push({ text: '🔙 BACK', action: () => this.showExploration() });
+        this.setActions(btns);
+    },
+
+    explore() {
+        CoreEngine.state.turn++;
+        WorldEventEngine.tickWorldState();
+        
+        const roll = Math.random();
+        const loc = LOCATIONS[CoreEngine.state.location];
+
+        // Easter egg (1% chance)
+        if (Math.random() < 0.01) {
+            WorldEventEngine.easterEggEvent();
+            return;
+        }
+
+        // Void Hacker special
+        if (CoreEngine.state.playerClass === 'void_hacker' && Math.random() < 0.1) {
+            WorldEventEngine.maybeTriggerWorldState();
+        }
+
+        const eventChanceBonus = CoreEngine.getSkillEffect('event_chance');
+        const eventThreshold = 0.82 - eventChanceBonus;
+
+        if (roll < 0.38) {
+            const enemyType = loc.enemies[Math.floor(Math.random() * loc.enemies.length)];
+            CombatEngine.startCombat(enemyType);
+        } else if (roll < 0.62) {
+            const lootPool = [...loc.loot, 'rock', 'berry'];
+            const found = lootPool[Math.floor(Math.random() * lootPool.length)];
+            CoreEngine.state.inventory.push(found);
+            AudioSystem.play('coin');
+            this.log(`👀 You found ${ITEMS[found]?.icon || '?'} <b>${ITEMS[found]?.name || found}</b>!`, 'loot-text');
+            if (CoreEngine.state.quest && CoreEngine.state.quest.id.startsWith('collect')) {
+                QuestEngine.updateProgress('collect', found);
+            }
+        } else if (roll < eventThreshold) {
+            WorldEventEngine.randomEvent();
+        } else if (roll < 0.95) {
+            const npcLine = NPC_LINES[Math.floor(Math.random() * NPC_LINES.length)];
+            this.log(`<i style="color:#aaaaff">${npcLine}</i>`);
+        } else {
+            this.log(`Nothing happened. You stared at a ${loc.name} wall.`);
+        }
+
+        CoreEngine.autoSave();
+        CoreEngine.checkEndings();
+        this.renderUI();
+    },
+
+    rest() {
+        const restAmt = 25 + Math.floor(CoreEngine.calculateStat('def') * 2);
+        this.log(`💤 Took a power nap. Healed ${restAmt} HP.`);
+        CoreEngine.heal(restAmt);
+        this.renderUI();
+    },
+
+    talkNPC() {
+        CoreEngine.state.npcTalks++;
+        const line = NPC_LINES[Math.floor(Math.random() * NPC_LINES.length)];
+        this.log(`<span class="event-text">${line}</span>`);
+        if (CoreEngine.state.npcTalks % 5 === 0) {
+            const reward = ['dust','berry','rock'][Math.floor(Math.random()*3)];
+            CoreEngine.state.inventory.push(reward);
+            this.log(`🎁 The NPC felt generous. You got ${ITEMS[reward].icon} ${ITEMS[reward].name}!`);
+        }
+    },
+
+    useItem(index) {
+        const itemId = CoreEngine.state.inventory[index];
+        const item = ITEMS[itemId];
+        if (!item) return;
+        if (item.type === 'con') {
+            if (item.combatOnly && !CombatEngine.currentEnemy) {
+                this.log(`💣 ${item.name} can only be used in combat!`);
+                return;
+            }
+            item.effect(CoreEngine.state);
+            CoreEngine.state.inventory.splice(index, 1);
+            this.log(`🥤 Used ${item.icon} ${item.name}`);
+            this.renderUI();
+        } else if (item.type === 'special') {
+            this.log(`🌟 ${item.icon} ${item.name}: "${item.desc}" — keep holding it.`);
+        } else {
+            this.log(`🔧 ${item.name} is a passive item.`);
+        }
+    },
+
+    showSkillTree() {
+        document.getElementById('skill-modal').style.display = 'flex';
+        document.getElementById('available-sp').innerText = CoreEngine.state.skillPoints;
+        this.renderSkillTree();
+    },
+
+    renderSkillTree() {
+        const container = document.getElementById('skill-trees');
+        container.innerHTML = '';
+        
+        Object.entries(SKILL_TREES).forEach(([treeId, tree]) => {
+            const col = document.createElement('div');
+            col.className = 'skill-tree-column';
+            col.innerHTML = `<h4>${tree.name}</h4>`;
+            
+            tree.skills.forEach(skill => {
+                const node = document.createElement('div');
+                const isUnlocked = CoreEngine.state.unlockedSkills.includes(skill.id);
+                const canUnlock = !skill.requires || CoreEngine.state.unlockedSkills.includes(skill.requires);
+                const hasPoints = CoreEngine.state.skillPoints >= skill.cost;
+                
+                node.className = `skill-node ${isUnlocked ? 'unlocked' : !canUnlock ? 'locked' : ''}`;
+                node.innerHTML = `
+                    <div class="skill-name">${isUnlocked ? '✅ ' : ''}${skill.name}</div>
+                    <div class="skill-desc">${skill.desc}</div>
+                    <div class="skill-cost">${skill.cost} SP</div>
+                `;
+                
+                if (!isUnlocked && canUnlock) {
+                    node.onclick = () => SkillTreeEngine.unlockSkill(skill.id);
+                }
+                
+                col.appendChild(node);
+            });
+            
+            container.appendChild(col);
+        });
+    },
+
+    closeSkillTree() {
+        document.getElementById('skill-modal').style.display = 'none';
+    },
+
+    showMultiEvent(eventData) {
+        AudioSystem.play('event');
+        document.getElementById('event-modal').style.display = 'flex';
+        document.getElementById('event-title').innerText = eventData.title;
+        document.getElementById('event-desc').innerText = eventData.desc;
+        const choicesDiv = document.getElementById('event-choices');
+        choicesDiv.innerHTML = '';
+        eventData.choices.forEach(choice => {
+            const btn = document.createElement('button');
+            btn.innerText = choice.text;
+            btn.style.fontSize = '1.4rem';
+            btn.onclick = () => {
+                document.getElementById('event-modal').style.display = 'none';
+                choice.action();
+                this.renderUI();
+                CoreEngine.checkEndings();
+            };
+            choicesDiv.appendChild(btn);
+        });
+    },
+
+    showExportImport() {
+        const saveData = JSON.stringify(CoreEngine.state);
+        const action = prompt('Export (copy) or Import (paste)?\nType "export" or "import"');
+        
+        if (action === 'export') {
+            navigator.clipboard.writeText(saveData).then(() => {
+                alert('Save data copied to clipboard!');
+            });
+        } else if (action === 'import') {
+            const data = prompt('Paste your save data:');
+            if (data) {
+                try {
+                    CoreEngine.state = JSON.parse(data);
+                    this.renderUI();
+                    this.showExploration();
+                    alert('Save imported successfully!');
+                } catch(e) {
+                    alert('Invalid save data!');
+                }
+            }
+        }
+    },
+
+    resetGame() {
+        localStorage.removeItem('chaosQuestSave_v3');
+        location.reload();
+    },
+
+    startNewGamePlus() {
+        const retainedStats = {
+            stats: {
+                str: Math.floor(CoreEngine.state.stats.str * 0.25),
+                spd: Math.floor(CoreEngine.state.stats.spd * 0.25),
+                lck: Math.floor(CoreEngine.state.stats.lck * 0.25),
+                def: Math.floor(CoreEngine.state.stats.def * 0.25),
+                mag: Math.floor(CoreEngine.state.stats.mag * 0.25),
+            },
+            pet: CoreEngine.state.pet ? { ...CoreEngine.state.pet } : null,
+            ngPlusCycle: CoreEngine.state.ngPlusCycle + 1,
+            playerClass: CoreEngine.state.playerClass,
+            unlockedSkills: [...CoreEngine.state.unlockedSkills],
+        };
+        
+        CoreEngine.state = JSON.parse(JSON.stringify(CoreEngine.initialState));
+        CoreEngine.state.stats = retainedStats.stats;
+        CoreEngine.state.pet = retainedStats.pet;
+        CoreEngine.state.ngPlusCycle = retainedStats.ngPlusCycle;
+        CoreEngine.state.playerClass = retainedStats.playerClass;
+        CoreEngine.state.unlockedSkills = retainedStats.unlockedSkills;
+        
+        document.getElementById('modal-overlay').style.display = 'none';
+        AudioSystem.play('level');
+        this.log(`<span class="level-text-anim">🌟 NEW GAME+ ${retainedStats.ngPlusCycle} STARTED!</span>`, 'level-text-anim');
+        this.log(`You retained 25% of your stats and your pet! Enemies are now stronger!`);
+        
+        SaveController.saveGame();
+        this.showExploration();
+    },
+
+    checkEndings() {
+        if (CoreEngine.state.flags.ended) return;
+        let ending = null;
+
+        // Original endings
+        if (CoreEngine.state.gold >= 1000)
+            ending = { title: '💰 THE JEFF BEZOS ENDING', desc: 'You bought the entire kingdom and evicted the king.' };
+        else if (CoreEngine.state.level >= 20)
+            ending = { title: '🦾 GIGACHAD ENDING', desc: 'You became so strong the server crashed.' };
+        else if (CoreEngine.state.pet && CoreEngine.state.pet.type === 'duck' && CoreEngine.state.pet.bond >= 100 && CoreEngine.state.pet.stage >= 2)
+            ending = { title: '🦆 DUCK DYNASTY', desc: 'The duck was a god all along. You are now its pet human.' };
+        else if (CoreEngine.state.inventory.includes('orb') && CoreEngine.state.inventory.includes('cloak') && CoreEngine.state.location === 'portal')
+            ending = { title: '🌌 VOID WALKER', desc: 'You stepped into the portal and became a CSS variable.' };
+        else if (CoreEngine.state.stats.lck <= 1)
+            ending = { title: '💩 BAD LUCK BRIAN', desc: 'You tripped on air and died of embarrassment.' };
+        else if (CoreEngine.state.turn > 100 && CoreEngine.state.level < 3)
+            ending = { title: '🕊️ HIPPIE ENDING', desc: 'You explored for 100 turns without fighting. Peace achieved.' };
+        else if (CoreEngine.state.inventory.length > 20)
+            ending = { title: '🎒 HOARDER ENDING', desc: 'Your inventory collapsed. Buried in rocks.' };
+        // New endings
+        else if (CoreEngine.state.inventory.includes('rainbow_shard'))
+            ending = { title: '🌈 RAINBOW GOD ENDING', desc: 'You crafted the Rainbow Shard. Reality offered you a job.' };
+        else if (CoreEngine.state.pet && CoreEngine.state.pet.type === 'dragon' && CoreEngine.state.pet.stage >= 3)
+            ending = { title: '🔥 DRAGON RIDER ENDING', desc: 'Your pet dragon reached max stage. You ascend.' };
+        else if (CoreEngine.state.pet && CoreEngine.state.pet.type === 'cat' && CoreEngine.state.pet.stage >= 3)
+            ending = { title: '😈 CAT OVERLORD ENDING', desc: 'Your cat evolved into a demon. It owns you now.' };
+        else if (CoreEngine.state.inventory.includes('void_heart') && CoreEngine.state.level >= 10)
+            ending = { title: '💜 VOID ASCENSION ENDING', desc: 'You merged with the Void Heart.' };
+        else if (CoreEngine.state.kills >= 50)
+            ending = { title: '💀 ABSOLUTE WARLORD ENDING', desc: '50 kills. The slimes hold a memorial.' };
+        else if (CoreEngine.state.stats.mag >= 30)
+            ending = { title: '🔮 ARCHMAGE CHAOS ENDING', desc: 'Your magic overflowed. A sandwich runs the country now.' };
+        else if (CoreEngine.state.inventory.includes('duck_crown') && CoreEngine.state.pet && CoreEngine.state.pet.type === 'duck')
+            ending = { title: '👑🦆 SUPREME DUCK EMPEROR ENDING', desc: 'Duck + Crown + Bond = Interdimensional Duck Throne.' };
+        else if (CoreEngine.state.npcTalks >= 15)
+            ending = { title: '🗣️ SOCIAL BUTTERFLY ENDING', desc: 'You talked to 15 NPCs. They elected you president.' };
+        // TRUE ENDING
+        else if (CoreEngine.state.inventory.includes('true_essence'))
+            ending = { title: '⭐ TRUE ENDING: CHAOS MASTER ⭐', desc: 'You defeated THE ABSOLUTE DUCK and crafted the True Essence. Reality itself bends to your will. The prophecy is fulfilled. The duck nods in approval. NEW GAME+ UNLOCKED!', isTrue: true };
+
+        if (ending) this.triggerEnding(ending);
+    },
+
+    triggerEnding(e) {
+        CoreEngine.state.flags.ended = true;
+        AudioSystem.play('win');
+        setTimeout(() => {
+            document.getElementById('modal-overlay').style.display = 'flex';
+            document.getElementById('ending-title').innerText = e.title;
+            document.getElementById('ending-desc').innerText = e.desc;
+            
+            // Show NG+ button for true ending
+            if (e.isTrue || CoreEngine.state.trueBossDefeated) {
+                document.getElementById('ngplus-btn').style.display = 'block';
+            } else {
+                document.getElementById('ngplus-btn').style.display = 'none';
+            }
+        }, 500);
+    }
+};
+
+/* ============================================================
+   SECTION 11: SAVE CONTROLLER
+   ============================================================ */
+
+const SaveController = {
+    saveGame() {
+        localStorage.setItem('chaosQuestSave_v3', JSON.stringify(CoreEngine.state));
+        const btn = document.querySelector('#header-stats button');
+        if (btn) {
+            const old = btn.innerHTML;
+            btn.innerHTML = '✅SAVED';
+            setTimeout(()=>btn.innerHTML=old, 1000);
+        }
+    }
+};
+
+/* ============================================================
+   SECTION 12: AUDIO SYSTEM
+   ============================================================ */
+
+const AudioSystem = {
+    ctx: null,
+
+    init() {
+        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    },
+
+    playNote(freq, duration, type='sine', volume=0.3, delay=0) {
+        this.init();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        const now = this.ctx.currentTime + delay;
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        gain.gain.setValueAtTime(volume, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.start(now);
+        osc.stop(now + duration + 0.01);
+    },
+
+    play(type) {
+        this.init();
+        switch(type) {
+            case 'coin':   this.playNote(1200,0.08,'sine',0.3); setTimeout(()=>this.playNote(2000,0.08,'sine',0.3),90); break;
+            case 'hit':    this.playNote(150,0.1,'sawtooth',0.5); break;
+            case 'craft':  [400,500,700,900].forEach((f,i)=>this.playNote(f,0.15,'triangle',0.25,i*0.08)); break;
+            case 'win':    [440,554,659,880].forEach((f,i)=>this.playNote(f,0.15,'square',0.2,i*0.1)); break;
+            case 'boss_enter': [100,80,60,40].forEach((f,i)=>this.playNote(f,0.3,'sawtooth',0.5,i*0.15)); break;
+            case 'boss_attack': this.playNote(200,0.2,'square',0.5); setTimeout(()=>this.playNote(100,0.3,'sawtooth',0.5),200); break;
+            case 'quest_complete': [523,659,784,1047].forEach((f,i)=>this.playNote(f,0.2,'triangle',0.3,i*0.12)); break;
+            case 'rare_craft': [300,600,1200,900,1800].forEach((f,i)=>this.playNote(f,0.2,'sine',0.3,i*0.1)); break;
+            case 'event':  this.playNote(300,0.1,'square',0.3); setTimeout(()=>this.playNote(450,0.15,'square',0.3),120); break;
+            case 'level':  [330,494,659,523,784,1047].forEach((f,i)=>this.playNote(f,0.2,'square',0.25,i*0.1)); break;
+            case 'pet_evo': [200,400,800,400,800,1200].forEach((f,i)=>this.playNote(f,0.15,'triangle',0.3,i*0.1)); break;
+            case 'death':  [200,150,100,50].forEach((f,i)=>this.playNote(f,0.3,'sawtooth',0.4,i*0.2)); break;
+        }
+    }
+};
+
+/* ============================================================
+   SECTION 13: CHEAT CODES
+   ============================================================ */
+
+let konamiBuffer = '';
+const CHEAT_CODES = {
+    'DUCKGOD':  () => { CoreEngine.state.pet = { type:'duck', bond:100, stage:3 }; UISystem.log('🦆 CHEAT: DUCK GOD MODE!', 'boss-text'); CoreEngine.checkTrueBossUnlock(); UISystem.renderUI(); },
+    'LETSGO':   () => { CoreEngine.state.gold += 500; CoreEngine.state.stats.str += 10; UISystem.log('💰 CHEAT: +500 Gold +10 STR!', 'boss-text'); UISystem.renderUI(); },
+    'CHAOS99':  () => { CoreEngine.state.level = 99; CoreEngine.state.maxHp = 9999; CoreEngine.state.hp = 9999; UISystem.log('🦾 CHEAT: LEVEL 99!', 'boss-text'); UISystem.renderUI(); },
+    'RAINBOWED':() => { CoreEngine.state.inventory.push('rainbow_shard'); UISystem.log('🌈 CHEAT: Rainbow Shard!', 'boss-text'); UISystem.renderUI(); CoreEngine.checkEndings(); },
+    'BAGOFCRAP':() => { ['magma_shard','gem_raw','cloud_fluff','lightning_jar','void_goo','bone_dust'].forEach(i=>CoreEngine.state.inventory.push(i)); UISystem.log('🎒 CHEAT: Bag of mats!', 'boss-text'); UISystem.renderUI(); },
+    'TRUEDUCK': () => { LOCATIONS.void_throne.locked = false; UISystem.log('🌑 CHEAT: Void Throne unlocked!', 'boss-text'); },
+    'SKILLME':  () => { CoreEngine.state.skillPoints += 20; UISystem.log('🎯 CHEAT: +20 Skill Points!', 'boss-text'); UISystem.renderUI(); },
+    'CLASSY':   () => { if(!CoreEngine.state.playerClass) ClassEngine.showClassSelection(); else UISystem.log('Already have a class!'); },
+};
+
+document.addEventListener('keydown', (e) => {
+    konamiBuffer = (konamiBuffer + e.key.toUpperCase()).slice(-10);
+    Object.keys(CHEAT_CODES).forEach(code => {
+        if (konamiBuffer.endsWith(code)) {
+            AudioSystem.init();
+            AudioSystem.play('rare_craft');
+            CHEAT_CODES[code]();
+            konamiBuffer = '';
+        }
+    });
+});
+
+/* ============================================================
+   SECTION 14: PARTICLE SYSTEM
+   ============================================================ */
+
+const canvas = document.getElementById('particle-canvas');
+const ctx = canvas.getContext('2d');
+let particles = [];
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
+class Particle {
+    constructor() { this.reset(); }
+    reset() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.size = Math.random() * 2.5 + 0.5;
+        this.speedX = (Math.random() - 0.5) * 0.8;
+        this.speedY = (Math.random() - 0.5) * 0.8;
+        this.life = Math.random() * 200 + 100;
+        this.maxLife = this.life;
+        this.color = `hsl(${Math.random()*360},70%,60%)`;
+    }
+    update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        this.life--;
+        if (this.life <= 0) this.reset();
+    }
+    draw() {
+        ctx.globalAlpha = this.life / this.maxLife * 0.6;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+    }
+}
+
+function initParticles() {
+    resizeCanvas();
+    for (let i = 0; i < 70; i++) particles.push(new Particle());
+    animateParticles();
+}
+
+function animateParticles() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => { p.update(); p.draw(); });
+    requestAnimationFrame(animateParticles);
+}
+
+window.addEventListener('resize', resizeCanvas);
+
+/* ============================================================
+   SECTION 15: INITIALIZATION
+   ============================================================ */
+
+initParticles();
+CoreEngine.init();
+UISystem.showExploration();
+
+</script>
+</body>
+</html>
