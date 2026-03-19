@@ -156,10 +156,16 @@
             border-top: 2px solid var(--neon-pink);
             padding: 12px;
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
             gap: 8px;
-            align-content: center;
+            align-content: start;
+            overflow-y: auto;
         }
+        #action-area.exploration-actions {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            padding-top: 14px;
+        }
+        #action-area button { min-height: 52px; }
 
         button {
             background: linear-gradient(135deg, #1a1a2e, #16213e);
@@ -483,6 +489,9 @@
         .status-negative { color: #ff7777; }
         .status-positive { color: #77ffbb; }
         .combat-hud { font-size:1.1rem; color:#ddd; padding:4px 0; }
+        .api-key-box { margin-top:6px; border-top:1px dashed #3aa; padding-top:6px; }
+        .api-key-box input { width:100%; background:#08121f; color:#fff; border:1px solid var(--neon-blue); border-radius:6px; padding:6px; font-family:'VT323', monospace; font-size:1.05rem; }
+        .api-key-help { color:#8fcfff; font-size:0.95rem; line-height:1.15; margin-top:4px; }
 
     </style>
 </head>
@@ -577,6 +586,15 @@
                         <button onclick="AIEngine.requestNPCDialogue()">NPC</button>
                         <button onclick="AIEngine.requestQuest()">Quest</button>
                         <button onclick="AIEngine.requestStoryEvent()">Event</button>
+                    </div>
+                    <div class="api-key-box">
+                        <div style="color:var(--neon-gold);font-size:1rem;">Paste Gemini API key here:</div>
+                        <input id="gemini-api-key-input" type="password" placeholder="Paste your shared Gemini API key here">
+                        <div class="tiny-btn-row">
+                            <button onclick="AIEngine.saveApiKey()">💾 Save Key</button>
+                            <button onclick="AIEngine.clearApiKey()">🧹 Clear</button>
+                        </div>
+                        <div id="gemini-key-status" class="api-key-help">Optional: if empty, the safe fallback text generator is used.</div>
                     </div>
                 </div>
             </div>
@@ -962,6 +980,41 @@ const ChaosHelpers = {
 };
 
 const AIEngine = {
+    getStoredApiKey() {
+        return localStorage.getItem('geminiApiKey') || window.GEMINI_API_KEY || '';
+    },
+    syncApiKeyUI() {
+        const input = document.getElementById('gemini-api-key-input');
+        const status = document.getElementById('gemini-key-status');
+        if (!input || !status) return;
+        const key = this.getStoredApiKey();
+        input.value = key;
+        status.innerText = key ? 'Gemini key saved locally in this browser. AI buttons will use it.' : 'Optional: if empty, the safe fallback text generator is used.';
+    },
+    saveApiKey() {
+        const input = document.getElementById('gemini-api-key-input');
+        if (!input) return;
+        const value = input.value.trim();
+        if (!value) {
+            document.getElementById('gemini-key-status').innerText = 'Paste a Gemini API key first, or leave blank to use fallback mode.';
+            return;
+        }
+        localStorage.setItem('geminiApiKey', value);
+        document.getElementById('gemini-key-status').innerText = 'Gemini key saved locally. Players do not need to open the console anymore.';
+        UISystem.log('🤖 Gemini key saved from the in-game panel.', 'event-text');
+    },
+    clearApiKey() {
+        localStorage.removeItem('geminiApiKey');
+        const input = document.getElementById('gemini-api-key-input');
+        if (input) input.value = '';
+        document.getElementById('gemini-key-status').innerText = 'Stored Gemini key cleared. Fallback mode is active again.';
+        UISystem.log('🤖 Gemini key cleared. Fallback AI is now active.', 'event-text');
+    },
+    async callGemini(kind) {
+        const apiKey = this.getStoredApiKey();
+        const s = CoreEngine.state;
+        const prompt = `You are the narrative engine for CHAOS QUEST. Return JSON only with keys title,text,choices. Kind:${kind}. Player level:${s.level}, class:${s.playerClass || 'none'}, location:${s.location}, pet:${s.pet ? s.pet.type + ' stage ' + s.pet.stage : 'none'}, quest:${s.quest ? s.quest.id : 'none'}, modifiers:${(s.runModifiers || []).join(',') || 'none'}. Keep it short, funny, and actionable.`;
+        if (!apiKey) throw new Error('Missing Gemini API key. Paste it into the in-game Gemini panel to enable live AI.');
     async callGemini(kind) {
         const apiKey = localStorage.getItem('geminiApiKey') || window.GEMINI_API_KEY || '';
         const s = CoreEngine.state;
@@ -2269,6 +2322,24 @@ const UISystem = {
         this.renderCrafting();
         this.renderPet();
         WorldEventEngine.updateWorldStateUI();
+        AIEngine.syncApiKeyUI();
+    },
+
+    renderEquipment() {
+        const eq = CoreEngine.state.equipment || { weapon:null, armor:null };
+        const weapon = eq.weapon ? ITEMS[eq.weapon] : null;
+        const armor = eq.armor ? ITEMS[eq.armor] : null;
+        document.getElementById('equipment-summary').innerHTML = `${weapon ? weapon.icon + ' ' + weapon.name : 'No weapon'}<br>${armor ? armor.icon + ' ' + armor.name : 'No armor'}`;
+        const build = [];
+        if (CoreEngine.calculateStat('str') >= CoreEngine.calculateStat('mag') + 5) build.push('<span class="build-chip">Bruiser</span>');
+        if (CoreEngine.calculateStat('mag') >= CoreEngine.calculateStat('str') + 5) build.push('<span class="build-chip">Caster</span>');
+        if (CoreEngine.state.pet) build.push(`<span class="build-chip">${PETS[CoreEngine.state.pet.type].name} Sync</span>`);
+        document.getElementById('build-summary').innerHTML = build.join(' ') || 'Unstable all-rounder build.';
+    },
+
+    renderWorldPanels() {
+        document.getElementById('world-modifiers').innerHTML = (CoreEngine.state.runModifiers || []).map(id => { const mod = RUN_MODIFIERS.find(m => m.id === id); return mod ? `<span class="modifier-chip">${mod.name}</span>` : ''; }).join(' ') || 'No dungeon modifiers active.';
+        document.getElementById('status-panel').innerHTML = (CoreEngine.state.statusEffects || []).map(s => `<span class="status-chip ${s.positive ? 'status-positive' : 'status-negative'}">${s.name} x${s.stacks} (${s.duration})</span>`).join(' ') || `<span style="color:#777">No active status effects.</span>`;
     },
 
     renderEquipment() {
@@ -2369,6 +2440,7 @@ const UISystem = {
     setActions(buttons) {
         const area = document.getElementById('action-area');
         area.innerHTML = '';
+        area.className = buttons.length >= 5 ? 'exploration-actions' : '';
         buttons.forEach(b => {
             const btn = document.createElement('button');
             btn.innerHTML = b.text;
