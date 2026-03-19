@@ -156,10 +156,16 @@
             border-top: 2px solid var(--neon-pink);
             padding: 12px;
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
             gap: 8px;
-            align-content: center;
+            align-content: start;
+            overflow-y: auto;
         }
+        #action-area.exploration-actions {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            padding-top: 14px;
+        }
+        #action-area button { min-height: 52px; }
 
         button {
             background: linear-gradient(135deg, #1a1a2e, #16213e);
@@ -453,6 +459,40 @@
         .dmg-magical { color: #6666ff; }
         .dmg-true { color: #ffffff; }
         .dmg-chaos { color: #ff00ff; animation: glitchPulse 0.2s infinite; }
+
+
+        .status-chip, .rarity-chip, .build-chip, .modifier-chip {
+            display:inline-block;
+            padding:2px 6px;
+            margin:2px;
+            border-radius:999px;
+            font-size:0.9rem;
+            border:1px solid currentColor;
+        }
+        .rarity-common { color:#bbb; }
+        .rarity-rare { color:#4dd2ff; }
+        .rarity-epic { color:#d580ff; }
+        .rarity-legendary { color:#ffd700; }
+        .rarity-mythic { color:#ff6ad5; }
+        .shake-hit { animation: shake 0.35s; }
+        .flash-heal { animation: glowPulse 0.4s; }
+        .ai-panel, .equipment-panel, .world-panel {
+            border: 1px solid var(--neon-cyan);
+            border-radius: 6px;
+            padding: 6px;
+            background: rgba(0,30,40,0.25);
+            margin-top: 6px;
+        }
+        .tiny-btn-row { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
+        .tiny-btn-row button { font-size:0.9rem; padding:4px 6px; flex:1; }
+        #ai-feed, #equipment-summary, #world-modifiers, #status-panel { font-size:1rem; line-height:1.15; }
+        .status-negative { color: #ff7777; }
+        .status-positive { color: #77ffbb; }
+        .combat-hud { font-size:1.1rem; color:#ddd; padding:4px 0; }
+        .api-key-box { margin-top:6px; border-top:1px dashed #3aa; padding-top:6px; }
+        .api-key-box input { width:100%; background:#08121f; color:#fff; border:1px solid var(--neon-blue); border-radius:6px; padding:6px; font-family:'VT323', monospace; font-size:1.05rem; }
+        .api-key-help { color:#8fcfff; font-size:0.95rem; line-height:1.15; margin-top:4px; }
+
     </style>
 </head>
 <body>
@@ -519,6 +559,43 @@
                 <div id="quest-panel">
                     <p id="quest-name" style="color:var(--neon-gold)">None Active</p>
                     <p id="quest-progress" style="color:#aaa"></p>
+                </div>
+            </div>
+
+            <div>
+                <h2>🛡️ LOADOUT</h2>
+                <div class="equipment-panel">
+                    <div id="equipment-summary">No gear equipped. Raw chaos only.</div>
+                    <div id="build-summary" style="margin-top:4px;color:var(--neon-gold);"></div>
+                </div>
+            </div>
+
+            <div>
+                <h2>🌍 WORLD</h2>
+                <div class="world-panel">
+                    <div id="world-modifiers">No dungeon modifiers active.</div>
+                    <div id="status-panel" style="margin-top:4px;"></div>
+                </div>
+            </div>
+
+            <div>
+                <h2>🤖 GEMINI / CHAOS AI</h2>
+                <div class="ai-panel">
+                    <div id="ai-feed">AI feed idle. Safe fallback brain engaged.</div>
+                    <div class="tiny-btn-row">
+                        <button onclick="AIEngine.requestNPCDialogue()">NPC</button>
+                        <button onclick="AIEngine.requestQuest()">Quest</button>
+                        <button onclick="AIEngine.requestStoryEvent()">Event</button>
+                    </div>
+                    <div class="api-key-box">
+                        <div style="color:var(--neon-gold);font-size:1rem;">Paste Gemini API key here:</div>
+                        <input id="gemini-api-key-input" type="password" placeholder="Paste your shared Gemini API key here">
+                        <div class="tiny-btn-row">
+                            <button onclick="AIEngine.saveApiKey()">💾 Save Key</button>
+                            <button onclick="AIEngine.clearApiKey()">🧹 Clear</button>
+                        </div>
+                        <div id="gemini-key-status" class="api-key-help">Optional: if empty, the safe fallback text generator is used.</div>
+                    </div>
                 </div>
             </div>
 
@@ -592,9 +669,32 @@
    SECTION 1: DATA DEFINITIONS (Preserved + Expanded)
    ============================================================ */
 
-const GAME_VERSION = '3.0';
+const GAME_VERSION = '3.5 GOD-TIER';
+const GEMINI_MODEL = 'gemini-2.0-flash';
 
 // ==================== ITEMS DATA ====================
+
+const EQUIPMENT_SLOTS = { wep:'weapon', arm:'armor' };
+const RARITY_DATA = {
+    common:{ label:'Common', className:'rarity-common', mult:1 },
+    rare:{ label:'Rare', className:'rarity-rare', mult:1.15 },
+    epic:{ label:'Epic', className:'rarity-epic', mult:1.3 },
+    legendary:{ label:'Legendary', className:'rarity-legendary', mult:1.5 },
+    mythic:{ label:'Mythic', className:'rarity-mythic', mult:1.75 },
+};
+const RUN_MODIFIERS = [
+    { id:'glass_cannon', name:'Glass Cannon', desc:'+35% player damage, -25% max HP', positive:false },
+    { id:'loot_festival', name:'Loot Festival', desc:'+1 bonus loot on wins', positive:true },
+    { id:'pet_parade', name:'Pet Parade', desc:'Pets trigger much more often', positive:true },
+    { id:'boss_fury', name:'Boss Fury', desc:'Bosses act aggressively and gain new tricks', positive:false },
+    { id:'branching_fate', name:'Branching Fate', desc:'Quest choices become more dramatic', positive:true },
+];
+const DUNGEONS = {
+    ember_depths:{ name:'🔥 Ember Depths', unlockLevel:6, enemies:['magma_imp','lava_golem'], boss:'boss_volcano', reward:'lava_sword', desc:'Hazards apply burn stacks.' },
+    mirrored_halls:{ name:'🪞 Mirrored Halls', unlockLevel:9, enemies:['book','glitch','crystal_spider'], boss:'boss_lich', reward:'gem_staff', desc:'Reality fractures and doubles rewards.' },
+    storm_nest:{ name:'⛈️ Storm Nest', unlockLevel:13, enemies:['storm_raven','cloud_knight'], boss:'boss_thunder_king', reward:'thunder_robe', desc:'Speed and shock decide survival.' },
+};
+
 const ITEMS = {
     // Original materials
     'berry':       { icon:'🍒', name:'Angry Berry',     type:'mat',     desc:'It vibrates with rage.' },
@@ -865,6 +965,104 @@ const WORLD_STATES = {
     }
 };
 
+
+const ChaosHelpers = {
+    rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; },
+    rarityForItem(itemId) {
+        const item = ITEMS[itemId] || {};
+        if (['true_essence'].includes(itemId)) return 'mythic';
+        if (['rainbow_shard','duck_crown','void_heart','chaos_core'].includes(itemId)) return 'legendary';
+        if (item.type === 'special') return 'epic';
+        if (item.type === 'wep' || item.type === 'arm') return 'rare';
+        return 'common';
+    },
+    ensureArray(v) { return Array.isArray(v) ? v : []; }
+};
+
+const AIEngine = {
+    getStoredApiKey() {
+        return localStorage.getItem('geminiApiKey') || window.GEMINI_API_KEY || '';
+    },
+    syncApiKeyUI() {
+        const input = document.getElementById('gemini-api-key-input');
+        const status = document.getElementById('gemini-key-status');
+        if (!input || !status) return;
+        const key = this.getStoredApiKey();
+        input.value = key;
+        status.innerText = key ? 'Gemini key saved locally in this browser. AI buttons will use it.' : 'Optional: if empty, the safe fallback text generator is used.';
+    },
+    saveApiKey() {
+        const input = document.getElementById('gemini-api-key-input');
+        if (!input) return;
+        const value = input.value.trim();
+        if (!value) {
+            document.getElementById('gemini-key-status').innerText = 'Paste a Gemini API key first, or leave blank to use fallback mode.';
+            return;
+        }
+        localStorage.setItem('geminiApiKey', value);
+        document.getElementById('gemini-key-status').innerText = 'Gemini key saved locally. Players do not need to open the console anymore.';
+        UISystem.log('🤖 Gemini key saved from the in-game panel.', 'event-text');
+    },
+    clearApiKey() {
+        localStorage.removeItem('geminiApiKey');
+        const input = document.getElementById('gemini-api-key-input');
+        if (input) input.value = '';
+        document.getElementById('gemini-key-status').innerText = 'Stored Gemini key cleared. Fallback mode is active again.';
+        UISystem.log('🤖 Gemini key cleared. Fallback AI is now active.', 'event-text');
+    },
+    async callGemini(kind) {
+        const apiKey = this.getStoredApiKey();
+        const s = CoreEngine.state;
+        const prompt = `You are the narrative engine for CHAOS QUEST. Return JSON only with keys title,text,choices. Kind:${kind}. Player level:${s.level}, class:${s.playerClass || 'none'}, location:${s.location}, pet:${s.pet ? s.pet.type + ' stage ' + s.pet.stage : 'none'}, quest:${s.quest ? s.quest.id : 'none'}, modifiers:${(s.runModifiers || []).join(',') || 'none'}. Keep it short, funny, and actionable.`;
+        if (!apiKey) throw new Error('Missing Gemini API key. Paste it into the in-game Gemini panel to enable live AI.');
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ contents:[{ parts:[{ text: prompt }] }], generationConfig:{ temperature:1.1, responseMimeType:'application/json' } })
+        });
+        if (!res.ok) throw new Error('Gemini API request failed');
+        const data = await res.json();
+        const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        return JSON.parse(raw);
+    },
+    fallback(kind) {
+        const s = CoreEngine.state;
+        const fallbacks = {
+            npc: [
+                { title:'🗣️ AI NPC', text:`A jittery mechanic studies your ${s.pet ? s.pet.type : 'lack of pet'} and says: "Every build is viable if you commit hard enough."` },
+                { title:'🗣️ AI NPC', text:`A duck cultist whispers that ${LOCATIONS[s.location].name} hides a choice that will remember you.` },
+            ],
+            quest: [
+                { title:'📜 AI Quest', text:'Forked quest generated: protect a merchant caravan for gold, or rob it for a cursed relic.', choices:['Guard it', 'Rob it'] },
+                { title:'📜 AI Quest', text:'A living dungeon requests snacks. Feed it materials for pet bond, or fight the walls for XP.', choices:['Feed it', 'Fight it'] },
+            ],
+            event: [
+                { title:'🌪️ AI Event', text:'A time rip duplicates your backpack. Keep the copy for loot, or destroy it to cleanse a random curse.' },
+                { title:'🌪️ AI Event', text:'A chaos rainstorm mutates local monsters. Explore now for mythic odds, or hide and recover HP.' },
+            ]
+        };
+        return ChaosHelpers.rand(fallbacks[kind]);
+    },
+    async request(kind) {
+        let payload, source = 'Gemini';
+        try { payload = await this.callGemini(kind); }
+        catch (err) { payload = this.fallback(kind); source = 'Fallback'; UISystem.log(`🤖 ${source} AI engaged: ${err.message}`, 'event-text'); }
+        const title = payload.title || `🤖 ${kind.toUpperCase()}`;
+        const text = payload.text || 'Static chaos achieved.';
+        document.getElementById('ai-feed').innerHTML = `<b>${title}</b><br><span style="color:#aaa">${text}</span><br><small>${source} • safe mode ready</small>`;
+        UISystem.log(`🤖 ${title}: ${text}`, 'event-text');
+        if (kind === 'quest') {
+            CoreEngine.state.aiQuest = { title, text, source, progress:0, goal:2 };
+        }
+        if (kind === 'event') {
+            CoreEngine.state.lastAIEvent = text;
+        }
+        UISystem.renderUI();
+    },
+    requestNPCDialogue() { return this.request('npc'); },
+    requestQuest() { return this.request('quest'); },
+    requestStoryEvent() { return this.request('event'); },
+};
+
 /* ============================================================
    SECTION 2: CORE ENGINE
    ============================================================ */
@@ -878,6 +1076,8 @@ const CoreEngine = {
         stats: { str: 5, spd: 5, lck: 5, def: 0, mag: 0 },
         inventory: [],
         equippedItems: [],
+        equipment: { weapon: null, armor: null },
+        statusEffects: [],
         pet: null,
         location: 'forest',
         flags: {},
@@ -896,6 +1096,12 @@ const CoreEngine = {
         craftingCount: 0,
         ngPlusCycle: 0,
         trueBossDefeated: false,
+        runModifiers: [],
+        aiQuest: null,
+        lastAIEvent: '',
+        questHistory: [],
+        endingsUnlocked: [],
+        dungeonClears: {},
     },
 
     init() {
@@ -1000,6 +1206,25 @@ const CoreEngine = {
         return base;
     },
 
+    hasModifier(modId) {
+        return (this.state.runModifiers || []).includes(modId);
+    },
+
+    applyStatus(name, stacks, duration, positive = false) {
+        const status = this.state.statusEffects.find(s => s.name === name);
+        if (status) { status.stacks += stacks; status.duration = Math.max(status.duration, duration); }
+        else this.state.statusEffects.push({ name, stacks, duration, positive });
+    },
+
+    tickStatuses() {
+        this.state.statusEffects = (this.state.statusEffects || []).filter(status => {
+            if (status.name === 'burn') { this.state.hp = Math.max(1, this.state.hp - status.stacks * 2); UISystem.log(`🔥 Burn deals ${status.stacks * 2} damage to you.`, 'combat-text'); }
+            if (status.name === 'regen') { this.heal(status.stacks * 3); UISystem.log(`💚 Regen restores ${status.stacks * 3} HP.`, 'pet-anim'); }
+            status.duration--;
+            return status.duration > 0;
+        });
+    },
+
     getSkillEffect(effectName) {
         let total = 0;
         this.state.unlockedSkills.forEach(skillId => {
@@ -1079,6 +1304,12 @@ const CoreEngine = {
                 this.state.ngPlusCycle = this.state.ngPlusCycle || 0;
                 this.state.npcTalks = this.state.npcTalks || 0;
                 this.state.location = this.state.location || 'forest';
+                this.state.equipment = this.state.equipment || { weapon:null, armor:null };
+                this.state.statusEffects = ChaosHelpers.ensureArray(this.state.statusEffects);
+                this.state.runModifiers = ChaosHelpers.ensureArray(this.state.runModifiers);
+                this.state.questHistory = ChaosHelpers.ensureArray(this.state.questHistory);
+                this.state.endingsUnlocked = ChaosHelpers.ensureArray(this.state.endingsUnlocked);
+                this.state.dungeonClears = this.state.dungeonClears || {};
                 
                 UISystem.log(`📂 Game loaded. Welcome back to the chaos.`);
             } catch(e) {
@@ -1122,6 +1353,9 @@ const CombatEngine = {
         this.shieldWallUsed = false;
         this.petReviveUsed = false;
         this.bossPhase = 1;
+        this.duckApostleRevive = false;
+        this.currentEnemy.statusEffects = [];
+        this.currentEnemy.aiProfile = this.currentEnemy.isBoss ? 'boss' : ChaosHelpers.rand(['aggressive','cunning','patient']);
         
         UISystem.clearLog();
 
@@ -1149,6 +1383,7 @@ const CombatEngine = {
 
     combatLoop() {
         UISystem.renderUI();
+        UISystem.log(`<div class="combat-hud">Enemy HP: <b>${Math.max(0, this.currentEnemy.hp)}</b> | AI: ${this.currentEnemy.aiProfile || 'wild'} | Status: ${(this.currentEnemy.statusEffects||[]).map(s=>s.name+'('+s.stacks+')').join(', ') || 'none'}</div>`);
         const actions = [
             { text: '⚔️ ATTACK', action: () => this.playerAttack(), class: 'danger-btn' },
             { text: '🛡️ DEFEND', action: () => this.playerDefend() },
@@ -1160,6 +1395,7 @@ const CombatEngine = {
         
         if (hasBomb) actions.push({ text: '💣 BOMB!', action: () => this.useCombatItem('bomb'), class: 'special-btn' });
         if (hasPotion) actions.push({ text: '🍷 HEAL', action: () => this.useCombatItem(CoreEngine.state.inventory.includes('elixir') ? 'elixir' : 'potion'), class: 'craft-btn' });
+        if (CoreEngine.state.pet) actions.push({ text: '🐾 PET SKILL', action: () => this.petSkillBurst(), class: 'skill-btn' });
         
         UISystem.setActions(actions);
     },
@@ -1238,6 +1474,8 @@ const CombatEngine = {
             }
         }
 
+        if (CoreEngine.calculateStat('mag') > 8 && Math.random() < 0.35) this.applyEnemyStatus('shock', 1, 2);
+        if (CoreEngine.hasModifier('glass_cannon')) dmg = Math.floor(dmg * 1.35);
         this.currentEnemy.hp -= dmg;
         
         if (this.currentEnemy.hp <= 0) {
@@ -1248,6 +1486,37 @@ const CombatEngine = {
             }
         }
         
+        this.enemyTurn();
+    },
+
+    applyEnemyStatus(name, stacks, duration) {
+        const list = this.currentEnemy.statusEffects || (this.currentEnemy.statusEffects = []);
+        const existing = list.find(s => s.name === name);
+        if (existing) { existing.stacks += stacks; existing.duration = Math.max(existing.duration, duration); }
+        else list.push({ name, stacks, duration });
+        UISystem.log(`🧪 ${this.currentEnemy.name} gains ${name} x${stacks}!`, 'event-text');
+    },
+
+    processEnemyStatuses() {
+        const list = this.currentEnemy.statusEffects || [];
+        this.currentEnemy.statusEffects = list.filter(status => {
+            if (status.name === 'shock') { this.currentEnemy.dmg = Math.max(1, this.currentEnemy.dmg - status.stacks); UISystem.log(`⚡ Shock disrupts ${this.currentEnemy.name}!`, 'skill-anim'); }
+            if (status.name === 'bleed') { this.currentEnemy.hp -= status.stacks * 4; UISystem.log(`🩸 Bleed ticks for ${status.stacks * 4}!`, 'combat-text'); }
+            if (status.name === 'burn') { this.currentEnemy.hp -= status.stacks * 6; UISystem.log(`🔥 Burn sears ${this.currentEnemy.name} for ${status.stacks * 6}!`, 'combat-text'); }
+            status.duration--;
+            return status.duration > 0;
+        });
+    },
+
+    petSkillBurst() {
+        if (!CoreEngine.state.pet) return;
+        const type = CoreEngine.state.pet.type;
+        if (type === 'wolf') { this.applyEnemyStatus('bleed', 2, 3); this.currentEnemy.hp -= 12 + CoreEngine.state.pet.stage * 4; }
+        else if (type === 'fairy') { CoreEngine.applyStatus('regen', 2, 3, true); }
+        else if (type === 'duck') { CoreEngine.state.stats.lck += 1; CoreEngine.state.stats.str += 1; UISystem.log('🦆 Duck rewrites probability. +1 STR +1 LCK.', 'pet-anim'); }
+        else if (type === 'cat') { CoreEngine.state.gold += 25; this.applyEnemyStatus('bleed', 1, 2); }
+        else if (type === 'dragon') { this.applyEnemyStatus('burn', 2, 3); this.currentEnemy.hp -= 18 + CoreEngine.calculateStat('mag'); }
+        UISystem.log('🐾 Pet burst activated!', 'pet-anim');
         this.enemyTurn();
     },
 
@@ -1291,13 +1560,19 @@ const CombatEngine = {
         setTimeout(() => {
             if (!this.currentEnemy) return;
 
+            this.processEnemyStatuses();
+            if (this.currentEnemy.hp <= 0) { this.winCombat(); return; }
+            CoreEngine.tickStatuses();
             // Boss special abilities
-            if (this.currentEnemy.isBoss && this.currentEnemy.abilities && this.combatTurn % 3 === 0) {
+            if (this.currentEnemy.isBoss && this.currentEnemy.abilities && (this.combatTurn % 3 === 0 || (CoreEngine.hasModifier('boss_fury') && this.combatTurn % 2 === 0))) {
                 this.bossTriggerAbility();
                 return;
             }
 
             let dmg = Math.max(0, this.currentEnemy.dmg - CoreEngine.calculateStat('def') + Math.floor(Math.random() * 4));
+            if (this.currentEnemy.aiProfile === 'aggressive') dmg += 4;
+            if (this.currentEnemy.aiProfile === 'cunning' && Math.random() < 0.3) { CoreEngine.applyStatus('burn', 1, 2); UISystem.log('🧠 Enemy AI exploits a weak point and inflicts burn!', 'combat-text'); }
+            if (this.currentEnemy.aiProfile === 'patient' && this.currentEnemy.hp < this.currentEnemy.maxHp * 0.4) dmg = Math.floor(dmg * 0.8);
             
             // Apply skill damage reduction
             const dmgReduction = CoreEngine.getSkillEffect('dmg_reduction');
@@ -1308,6 +1583,7 @@ const CombatEngine = {
                 dmg = Math.floor(dmg * (Math.random() * 0.6 + 0.7)); // 70% to 130%
             }
             
+            if (CoreEngine.hasModifier('glass_cannon')) CoreEngine.state.maxHp = Math.max(50, Math.floor(CoreEngine.initialState.maxHp * 0.75) + CoreEngine.state.level * 12);
             if (isDefending) dmg = Math.floor(dmg * 0.4);
 
             // Shield Wall check
@@ -1513,6 +1789,10 @@ const CombatEngine = {
                     CoreEngine.state.inventory.push(drop);
                     AudioSystem.play('coin');
                     UISystem.log(`🎁 Loot: ${ITEMS[drop] ? ITEMS[drop].icon + ' ' + ITEMS[drop].name : drop}`);
+                    if (CoreEngine.hasModifier('loot_festival')) {
+                        CoreEngine.state.inventory.push(drop);
+                        UISystem.log(`🎊 Loot Festival duplicates the drop!`, 'loot-text');
+                    }
                 }
                 
                 // Bonus random mat
@@ -1573,6 +1853,7 @@ const CombatEngine = {
 
     gameOver() {
         CoreEngine.state.flags.ended = true;
+        if (!CoreEngine.state.endingsUnlocked.includes(e.title)) CoreEngine.state.endingsUnlocked.push(e.title);
         AudioSystem.play('death');
         setTimeout(() => {
             document.getElementById('modal-overlay').style.display = 'flex';
@@ -1723,7 +2004,19 @@ const CraftEngine = {
             UISystem.log(`⚒️ Crafted ${item.icon} <b>${item.name}</b>!`, 'craft-anim');
         }
 
-        // Auto-apply stats
+        if (item.type === 'wep' || item.type === 'arm') {
+            const slot = EQUIPMENT_SLOTS[item.type];
+            const prev = CoreEngine.state.equipment[slot];
+            if (prev && ITEMS[prev]) {
+                const p = ITEMS[prev];
+                if (p.stat) CoreEngine.state.stats[p.stat] -= p.val;
+                if (p.stat2) CoreEngine.state.stats[p.stat2] -= p.val2;
+            }
+            CoreEngine.state.equipment[slot] = recipe.res;
+            const rarity = ChaosHelpers.rarityForItem(recipe.res);
+            item.rarity = rarity;
+            UISystem.log(`🛡️ Equipped ${item.name} in ${slot} slot. <span class="rarity-chip ${RARITY_DATA[rarity].className}">${RARITY_DATA[rarity].label}</span>`);
+        }
         if (item.stat) { CoreEngine.state.stats[item.stat] += item.val; UISystem.log(`📈 +${item.val} ${item.stat.toUpperCase()}!`); }
         if (item.stat2) { CoreEngine.state.stats[item.stat2] += item.val2; UISystem.log(`📈 ${item.val2 > 0 ? '+' : ''}${item.val2} ${item.stat2.toUpperCase()}!`); }
 
@@ -1745,6 +2038,7 @@ const CraftEngine = {
 const WorldEventEngine = {
     randomEvent() {
         const events = [
+            () => { const mod = ChaosHelpers.rand(RUN_MODIFIERS); if (!CoreEngine.hasModifier(mod.id)) { CoreEngine.state.runModifiers.push(mod.id); UISystem.log(`🎲 Run modifier gained: ${mod.name} — ${mod.desc}`, 'event-text'); } },
             () => {
                 if (!CoreEngine.state.pet) {
                     const petTypes = ['wolf','fairy','duck','cat','dragon'];
@@ -2014,13 +2308,33 @@ const UISystem = {
         } else {
             document.getElementById('quest-bar').style.width = '0%';
             document.getElementById('quest-name').innerText = 'None Active';
-            document.getElementById('quest-progress').innerText = '';
+            document.getElementById('quest-progress').innerText = CoreEngine.state.aiQuest ? CoreEngine.state.aiQuest.text : '';
         }
 
+        this.renderEquipment();
+        this.renderWorldPanels();
         this.renderInventory();
         this.renderCrafting();
         this.renderPet();
         WorldEventEngine.updateWorldStateUI();
+        AIEngine.syncApiKeyUI();
+    },
+
+    renderEquipment() {
+        const eq = CoreEngine.state.equipment || { weapon:null, armor:null };
+        const weapon = eq.weapon ? ITEMS[eq.weapon] : null;
+        const armor = eq.armor ? ITEMS[eq.armor] : null;
+        document.getElementById('equipment-summary').innerHTML = `${weapon ? weapon.icon + ' ' + weapon.name : 'No weapon'}<br>${armor ? armor.icon + ' ' + armor.name : 'No armor'}`;
+        const build = [];
+        if (CoreEngine.calculateStat('str') >= CoreEngine.calculateStat('mag') + 5) build.push('<span class="build-chip">Bruiser</span>');
+        if (CoreEngine.calculateStat('mag') >= CoreEngine.calculateStat('str') + 5) build.push('<span class="build-chip">Caster</span>');
+        if (CoreEngine.state.pet) build.push(`<span class="build-chip">${PETS[CoreEngine.state.pet.type].name} Sync</span>`);
+        document.getElementById('build-summary').innerHTML = build.join(' ') || 'Unstable all-rounder build.';
+    },
+
+    renderWorldPanels() {
+        document.getElementById('world-modifiers').innerHTML = (CoreEngine.state.runModifiers || []).map(id => { const mod = RUN_MODIFIERS.find(m => m.id === id); return mod ? `<span class="modifier-chip">${mod.name}</span>` : ''; }).join(' ') || 'No dungeon modifiers active.';
+        document.getElementById('status-panel').innerHTML = (CoreEngine.state.statusEffects || []).map(s => `<span class="status-chip ${s.positive ? 'status-positive' : 'status-negative'}">${s.name} x${s.stacks} (${s.duration})</span>`).join(' ') || `<span style="color:#777">No active status effects.</span>`;
     },
 
     renderInventory() {
@@ -2104,6 +2418,7 @@ const UISystem = {
     setActions(buttons) {
         const area = document.getElementById('action-area');
         area.innerHTML = '';
+        area.className = buttons.length >= 5 ? 'exploration-actions' : '';
         buttons.forEach(b => {
             const btn = document.createElement('button');
             btn.innerHTML = b.text;
@@ -2120,6 +2435,8 @@ const UISystem = {
             const el = document.getElementById('filter-' + id);
             if (el) el.classList.toggle('filter-active', id === f);
         });
+        this.renderEquipment();
+        this.renderWorldPanels();
         this.renderInventory();
     },
 
@@ -2192,8 +2509,17 @@ const UISystem = {
                 class: isVoidThrone && canAccess ? 'boss-btn' : ''
             };
         });
+        Object.entries(DUNGEONS).forEach(([key, d]) => btns.push({ text: `${d.name}${CoreEngine.state.level >= d.unlockLevel ? '' : ' 🔒'}`, action: CoreEngine.state.level >= d.unlockLevel ? () => { this.enterDungeon(key); } : () => this.log(`🔒 Requires Level ${d.unlockLevel}!`), class:'special-btn' }));
         btns.push({ text: '🔙 BACK', action: () => this.showExploration() });
         this.setActions(btns);
+    },
+
+    enterDungeon(key) {
+        const d = DUNGEONS[key];
+        this.log(`🌀 Entered ${d.name}. ${d.desc}`, 'boss-text');
+        const encounter = Math.random() < 0.75 ? ChaosHelpers.rand(d.enemies) : d.boss;
+        if (encounter === d.boss) CoreEngine.state.dungeonClears[key] = (CoreEngine.state.dungeonClears[key] || 0) + 1;
+        CombatEngine.startCombat(encounter);
     },
 
     explore() {
@@ -2254,6 +2580,7 @@ const UISystem = {
         CoreEngine.state.npcTalks++;
         const line = NPC_LINES[Math.floor(Math.random() * NPC_LINES.length)];
         this.log(`<span class="event-text">${line}</span>`);
+        if (Math.random() < 0.35) AIEngine.requestNPCDialogue();
         if (CoreEngine.state.npcTalks % 5 === 0) {
             const reward = ['dust','berry','rock'][Math.floor(Math.random()*3)];
             CoreEngine.state.inventory.push(reward);
@@ -2276,6 +2603,11 @@ const UISystem = {
             this.renderUI();
         } else if (item.type === 'special') {
             this.log(`🌟 ${item.icon} ${item.name}: "${item.desc}" — keep holding it.`);
+        } else if (item.type === 'wep' || item.type === 'arm') {
+            const slot = EQUIPMENT_SLOTS[item.type];
+            CoreEngine.state.equipment[slot] = itemId;
+            this.log(`🛡️ ${item.name} is bound to your ${slot} slot. Build updated.`);
+            this.renderUI();
         } else {
             this.log(`🔧 ${item.name} is a passive item.`);
         }
@@ -2440,6 +2772,12 @@ const UISystem = {
             ending = { title: '👑🦆 SUPREME DUCK EMPEROR ENDING', desc: 'Duck + Crown + Bond = Interdimensional Duck Throne.' };
         else if (CoreEngine.state.npcTalks >= 15)
             ending = { title: '🗣️ SOCIAL BUTTERFLY ENDING', desc: 'You talked to 15 NPCs. They elected you president.' };
+        else if (CoreEngine.state.runModifiers.length >= 3 && CoreEngine.state.pet && CoreEngine.state.pet.stage >= 3)
+            ending = { title: '🌀 SANDBOX SOVEREIGN', desc: 'You embraced modifiers, mastered a pet synergy build, and turned chaos into a lifestyle.' };
+        else if (Object.keys(CoreEngine.state.dungeonClears || {}).length >= 3)
+            ending = { title: '🏰 DUNGEON TOURIST SUPREME', desc: 'You conquered multiple challenge dungeons and left terrible reviews in all of them.' };
+        else if (CoreEngine.state.aiQuest && CoreEngine.state.aiQuest.source === 'Gemini' && CoreEngine.state.npcTalks >= 10)
+            ending = { title: '🤖 CO-AUTHORED DESTINY', desc: 'The world began improvising with you. Even the NPCs admit you are canon now.' };
         // TRUE ENDING
         else if (CoreEngine.state.inventory.includes('true_essence'))
             ending = { title: '⭐ TRUE ENDING: CHAOS MASTER ⭐', desc: 'You defeated THE ABSOLUTE DUCK and crafted the True Essence. Reality itself bends to your will. The prophecy is fulfilled. The duck nods in approval. NEW GAME+ UNLOCKED!', isTrue: true };
@@ -2449,6 +2787,7 @@ const UISystem = {
 
     triggerEnding(e) {
         CoreEngine.state.flags.ended = true;
+        if (!CoreEngine.state.endingsUnlocked.includes(e.title)) CoreEngine.state.endingsUnlocked.push(e.title);
         AudioSystem.play('win');
         setTimeout(() => {
             document.getElementById('modal-overlay').style.display = 'flex';
