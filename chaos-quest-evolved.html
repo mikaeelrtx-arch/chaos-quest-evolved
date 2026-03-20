@@ -511,6 +511,7 @@
             <div id="class-badge"></div>
             <div class="stat-box"><button style="font-size:0.75rem;padding:2px 5px;" onclick="SaveController.saveGame()">💾SAVE</button></div>
             <div class="stat-box"><button style="font-size:0.75rem;padding:2px 5px;" onclick="UISystem.showExportImport()">📤</button></div>
+            <div class="stat-box"><button style="font-size:0.75rem;padding:2px 5px;border-color:var(--neon-red);" onclick="UISystem.resetStatsOnly()">🧼RESET</button></div>
         </div>
 
         <div id="main-display">
@@ -614,6 +615,7 @@
             <div class="ending-title" id="ending-title">ENDING UNLOCKED</div>
             <p id="ending-desc" style="font-size:1.5rem">...</p>
             <button onclick="UISystem.resetGame()" style="margin-top:20px;border-color:gold;">🔄 REINCARNATE</button>
+            <button onclick="UISystem.resetStatsOnly()" style="margin-top:10px;border-color:var(--neon-red);">🧼 RESET ALL STATS</button>
             <button id="ngplus-btn" onclick="UISystem.startNewGamePlus()" style="margin-top:10px;border-color:var(--neon-purple);display:none;">🌟 NEW GAME+</button>
         </div>
     </div>
@@ -1911,6 +1913,7 @@ const QuestEngine = {
         if (CoreEngine.state.quest) {
             const q = QUESTS[CoreEngine.state.quest.id];
             UISystem.log(`📜 Active Quest: <b>${q.name}</b> — ${q.desc}: ${CoreEngine.state.quest.progress}/${CoreEngine.state.quest.goal}`);
+            btns.push({ text: '🗑️ ABANDON QUEST', action: () => this.abandonQuest(), class: 'danger-btn' });
             btns.push({ text: '🔙 BACK', action: () => UISystem.showExploration() });
         } else {
             UISystem.log(`📜 Choose a quest:`, 'quest-text');
@@ -1953,6 +1956,14 @@ const QuestEngine = {
         if (CoreEngine.state.quest.progress >= CoreEngine.state.quest.goal) {
             this.completeQuest();
         }
+    },
+
+    abandonQuest() {
+        if (!CoreEngine.state.quest) return;
+        UISystem.log(`🗑️ Abandoned quest: <b>${QUESTS[CoreEngine.state.quest.id].name}</b>.`, 'event-text');
+        CoreEngine.state.quest = null;
+        UISystem.renderUI();
+        UISystem.showExploration();
     },
 
     completeQuest() {
@@ -2722,9 +2733,44 @@ const UISystem = {
         }
     },
 
-    resetGame() {
+    hardResetState({ keepMeta = false } = {}) {
+        const preserved = keepMeta ? {
+            aiKey: AIEngine.getStoredApiKey(),
+        } : {};
+        CombatEngine.currentEnemy = null;
+        CoreEngine.state = JSON.parse(JSON.stringify(CoreEngine.initialState));
+        document.getElementById('modal-overlay').style.display = 'none';
+        document.getElementById('main-display').innerHTML = '';
+        this.log('<span class="level-text-anim">✨ Reality rebooted.</span>', 'level-text-anim');
+        this.log('You are back at square one, pants still missing.');
         localStorage.removeItem('chaosQuestSave_v3');
-        location.reload();
+        if (keepMeta && preserved.aiKey) localStorage.setItem('geminiApiKey', preserved.aiKey);
+        SaveController.saveGame();
+        this.showExploration();
+    },
+
+    resetGame() {
+        this.hardResetState({ keepMeta: true });
+    },
+
+    resetStatsOnly() {
+        CoreEngine.state.stats = JSON.parse(JSON.stringify(CoreEngine.initialState.stats));
+        CoreEngine.state.maxHp = CoreEngine.initialState.maxHp;
+        CoreEngine.state.hp = CoreEngine.state.maxHp;
+        CoreEngine.state.level = 1;
+        CoreEngine.state.xp = 0;
+        CoreEngine.state.toNextLevel = 100;
+        CoreEngine.state.skillPoints = 0;
+        CoreEngine.state.unlockedSkills = [];
+        CoreEngine.state.playerClass = null;
+        CoreEngine.state.equipment = { weapon:null, armor:null };
+        CoreEngine.state.quest = null;
+        CoreEngine.state.aiQuest = null;
+        CoreEngine.state.statusEffects = [];
+        UISystem.log('🧼 All stats, class, skills, gear, and active quest were reset.', 'event-text');
+        SaveController.saveGame();
+        this.renderUI();
+        this.showExploration();
     },
 
     startNewGamePlus() {
