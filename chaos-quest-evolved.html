@@ -2625,9 +2625,11 @@ const UISystem = {
         CoreEngine.state.unlockedSkills = [];
         CoreEngine.state.playerClass = null;
         CoreEngine.state.equipment = { weapon:null, armor:null };
+        CoreEngine.state.inventory = [];
+        CoreEngine.state.pet = null;
         CoreEngine.state.quest = null;
         CoreEngine.state.statusEffects = [];
-        UISystem.log('🧼 All stats, class, skills, gear, and active quest were reset.', 'event-text');
+        UISystem.log('🧼 All stats, class, skills, items, pet, gear, and active quest were reset.', 'event-text');
         SaveController.saveGame();
         this.renderUI();
         this.showExploration();
